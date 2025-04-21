@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { ChevronDown, ChevronRight, ArrowRight } from "lucide-react"
 import { useMenuInteractions } from "./menu-interaction-context"
 
@@ -12,6 +13,7 @@ type SubLink = {
   url?: string
   order?: number
   hidden?: boolean
+  image?: string
 }
 
 type SubList = {
@@ -30,6 +32,17 @@ type CTAButton = {
   text: string
   url?: string
   hidden?: boolean
+  group?: string // For legacy support
+}
+
+type CTAButtonGroup = {
+  heading: string
+  buttons: {
+    text: string
+    url?: string
+    hidden?: boolean
+  }[]
+  hidden?: boolean
 }
 
 type MenuLink = {
@@ -45,10 +58,11 @@ type MenuList = {
   heading: string
   order?: number
   links: MenuLink[]
-  ctaButtons?: CTAButton[]
-  subLists?: SubList[]
+  ctaButtons?: CTAButton[] // Legacy support
+  ctaButtonGroups?: CTAButtonGroup[] // New structure
   additionalLinks?: AdditionalLink[]
   hidden?: boolean
+  subLists?: SubList[]
 }
 
 type MenuItem = {
@@ -80,10 +94,14 @@ type MegaMenuProps = {
 // Threshold for meaningful interaction in milliseconds
 const MEANINGFUL_INTERACTION_THRESHOLD = 2000 // 2 seconds
 
+// Sample info cards data - in a real implementation, this would come from your CMS
+// Remove this hardcoded array
+
 export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [trianglePosition, setTrianglePosition] = useState(0)
-  const [animationKey, setAnimationKey] = useState(0) // Add key for forcing animation reset
+  const [animationKey, setAnimationKey] = useState(0)
   const [isHoveringActiveItem, setIsHoveringActiveItem] = useState(false)
   const [isHoveringDropdown, setIsHoveringDropdown] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -95,9 +113,6 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   const meaningfulInteractionTimerRef = useRef<NodeJS.Timeout | null>(null)
   const menuOpenTimeRef = useRef<number | null>(null)
   const { addInteraction, showNotification } = useMenuInteractions()
-
-  // Default minimum width for the mega menu
-  const DEFAULT_MIN_WIDTH = 600
 
   // Ensure menuItems exists and is an array
   const items = useMemo(() => menuItems?.filter((item) => !item.hidden) || [], [menuItems])
@@ -113,7 +128,13 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     [activeMenuItem],
   )
 
-  // Calculate menu dimensions - memoized to prevent recalculation on every render
+  // Get the active category's content
+  const activeCategoryContent = useMemo(() => {
+    if (!activeCategory || !activeMenuLists.length) return null
+    return activeMenuLists.find((list) => list.heading === activeCategory) || activeMenuLists[0]
+  }, [activeCategory, activeMenuLists])
+
+  // Calculate menu dimensions
   const menuDimensions = useMemo(() => {
     if (!firstItemRef.current || !lastItemRef.current || !navRef.current) {
       return { width: 0, left: 0 }
@@ -143,92 +164,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  // Pre-calculate menu widths for each menu item - only run once
-  const menuWidths = useMemo(() => {
-    const widths: { [key: string]: number } = {}
-
-    // Skip calculation if we're in SSR
-    if (typeof document === "undefined") return widths
-
-    // Create a hidden div to measure content
-    const measureDiv = document.createElement("div")
-    measureDiv.style.position = "absolute"
-    measureDiv.style.visibility = "hidden"
-    measureDiv.style.display = "block"
-    measureDiv.style.width = "auto"
-    document.body.appendChild(measureDiv)
-
-    // Calculate width for each menu item with lists
-    items.forEach((item) => {
-      if (!item.menuLists || item.menuLists.length === 0) return
-
-      const visibleLists = item.menuLists.filter((list) => !list.hidden)
-      if (visibleLists.length === 0) return
-
-      // Create a grid container similar to our actual menu
-      measureDiv.innerHTML = ""
-      measureDiv.style.display = "grid"
-      measureDiv.style.gridTemplateColumns =
-        visibleLists.length === 1 ? "1fr" : visibleLists.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr"
-      measureDiv.style.gap = "1.5rem"
-      measureDiv.style.padding = "1rem"
-
-      // Add content for each list
-      visibleLists.forEach((list) => {
-        const listDiv = document.createElement("div")
-        listDiv.style.display = "flex"
-        listDiv.style.flexDirection = "column"
-
-        // Add heading
-        const heading = document.createElement("h3")
-        heading.textContent = list.heading
-        listDiv.appendChild(heading)
-
-        // Add links
-        if (list.links && list.links.length > 0) {
-          const ul = document.createElement("ul")
-          list.links
-            .filter((link) => !link.hidden)
-            .forEach((link) => {
-              const li = document.createElement("li")
-              const a = document.createElement("a")
-              a.textContent = link.title
-              li.appendChild(a)
-              ul.appendChild(li)
-            })
-          listDiv.appendChild(ul)
-        }
-
-        // Add to measure div
-        measureDiv.appendChild(listDiv)
-      })
-
-      // Measure the width
-      const width = measureDiv.offsetWidth
-      widths[item._id] = Math.max(width, DEFAULT_MIN_WIDTH)
-    })
-
-    // Clean up
-    document.body.removeChild(measureDiv)
-
-    return widths
-  }, [items])
-
-  // Calculate final position - memoized to prevent recalculation on every render
-  const finalPosition = useMemo(() => {
-    if (!activeMenu) return { width: 0, left: 0 }
-
-    // Get the width for this menu (or use default)
-    const contentWidth = menuWidths[activeMenu] || DEFAULT_MIN_WIDTH
-
-    // Use the larger of nav width or content width
-    const width = Math.max(menuDimensions.width, contentWidth)
-
-    // Fixed right alignment
-    return { width, left: 0 }
-  }, [activeMenu, menuDimensions.width, menuWidths])
-
-  // Calculate triangle position - only when needed
+  // Calculate triangle position
   const calculateTrianglePosition = useCallback(() => {
     if (!activeMenu || !navRef.current) return 0
 
@@ -320,11 +256,19 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
           }
         }
         setActiveMenu(null)
+        setActiveCategory(null)
       }, 100) // Small delay to prevent flickering during transition between elements
 
       return () => clearTimeout(timer)
     }
   }, [isHoveringDropdown, isHoveringActiveItem, activeMenu, items, addInteraction])
+
+  // Set initial active category when menu opens
+  useEffect(() => {
+    if (activeMenu && activeMenuLists.length > 0 && !activeCategory) {
+      setActiveCategory(activeMenuLists[0].heading)
+    }
+  }, [activeMenu, activeMenuLists, activeCategory])
 
   const handleMenuClick = useCallback(
     (id: string, title: string, hasChildren: boolean) => {
@@ -351,6 +295,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
 
         // Close the active menu
         setActiveMenu(null)
+        setActiveCategory(null)
       }
 
       // Log the top-level menu interaction with appropriate state indicator
@@ -366,6 +311,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             showNotification(`${title} (closed)`)
           }
           setActiveMenu(null)
+          setActiveCategory(null)
         } else {
           // If we're switching between menus, close the current one first
           if (activeMenu !== null) {
@@ -386,15 +332,26 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             }
 
             setActiveMenu(null)
+            setActiveCategory(null)
             // Small delay to ensure the previous menu is closed before opening the new one
             setTimeout(() => {
               setAnimationKey((prev) => prev + 1) // Increment key to force animation reset
               setActiveMenu(id)
+              // Set the first category as active by default
+              if (items.find((item) => item._id === id)?.menuLists?.length) {
+                const firstCategory = items.find((item) => item._id === id)?.menuLists?.[0]?.heading
+                if (firstCategory) setActiveCategory(firstCategory)
+              }
             }, 10)
           } else {
             // Just opening a new menu
             setAnimationKey((prev) => prev + 1) // Increment key to force animation reset
             setActiveMenu(id)
+            // Set the first category as active by default
+            if (items.find((item) => item._id === id)?.menuLists?.length) {
+              const firstCategory = items.find((item) => item._id === id)?.menuLists?.[0]?.heading
+              if (firstCategory) setActiveCategory(firstCategory)
+            }
           }
 
           // For click opens, we log immediately (not waiting for the threshold)
@@ -409,6 +366,15 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
       }
     },
     [activeMenu, items, addInteraction, showNotification],
+  )
+
+  // Handle category click
+  const handleCategoryClick = useCallback(
+    (category: string) => {
+      setActiveCategory(category)
+      addInteraction(`Category: ${category} (selected)`, `#category-${category}`)
+    },
+    [addInteraction],
   )
 
   // Handle click outside to close menu
@@ -434,6 +400,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
 
         // Close the menu
         setActiveMenu(null)
+        setActiveCategory(null)
       }
     }
 
@@ -465,6 +432,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
       addInteraction(formattedTitle, url || "#")
       showNotification(formattedTitle)
       setActiveMenu(null)
+      setActiveCategory(null)
     },
     [addInteraction, showNotification],
   )
@@ -515,6 +483,139 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     })
   }, [otherItems, handleActionButtonClick])
 
+  // Function to render CTA button groups
+  const renderCtaButtonGroups = () => {
+    if (!activeCategoryContent) return null
+
+    // Debug logging
+    console.log("CTA Content:", {
+      ctaButtonGroups: activeCategoryContent.ctaButtonGroups,
+      ctaButtons: activeCategoryContent.ctaButtons,
+      heading: activeCategoryContent.heading,
+    })
+
+    // First check if we have the new button groups structure
+    if (activeCategoryContent.ctaButtonGroups && activeCategoryContent.ctaButtonGroups.length > 0) {
+      return activeCategoryContent.ctaButtonGroups
+        .filter((group) => !group.hidden)
+        .map((group, index) => (
+          <div key={`group-${index}`} style={{ marginBottom: "1rem" }}>
+            <h4
+              style={{
+                fontWeight: "600",
+                marginBottom: "0.75rem",
+                color: "#4b5563",
+                fontSize: "0.85rem",
+              }}
+            >
+              {group.heading}
+            </h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {group.buttons
+                .filter((button) => !button.hidden)
+                .map((button, buttonIndex) => (
+                  <Link
+                    key={buttonIndex}
+                    href={button.url || "#"}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "0.375rem",
+                      fontWeight: "500",
+                      color: "#000000",
+                      backgroundColor: "#ffb612",
+                      transition: "background-color 0.2s ease-in-out",
+                      textDecoration: "none",
+                      fontSize: "0.75rem",
+                      width: "calc(100% - 15px)", // Make buttons 15px less wide
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault() // Prevent actual navigation for testing
+                      handleLinkClick(
+                        button.text,
+                        button.url || "#",
+                        activeMenuItem?.title,
+                        activeCategoryContent.heading,
+                      )
+                    }}
+                  >
+                    <span>{button.text}</span>
+                    <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                  </Link>
+                ))}
+            </div>
+          </div>
+        ))
+    }
+
+    // Fall back to legacy structure if new structure is not available
+    if (activeCategoryContent.ctaButtons && activeCategoryContent.ctaButtons.length > 0) {
+      // Get all unique groups
+      const groups = Array.from(
+        new Set(
+          activeCategoryContent.ctaButtons
+            .filter((button) => !button.hidden)
+            .map((button) => button.group || "default"),
+        ),
+      )
+
+      return groups.map((group) => (
+        <div key={group} style={{ marginBottom: "1rem" }}>
+          <h4
+            style={{
+              fontWeight: "600",
+              marginBottom: "0.75rem",
+              color: "#4b5563",
+              fontSize: "0.85rem",
+            }}
+          >
+            {group === "default" ? "Actions" : group}
+          </h4>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {activeCategoryContent.ctaButtons
+              .filter((button) => !button.hidden && (button.group || "default") === group)
+              .map((button, buttonIndex) => (
+                <Link
+                  key={buttonIndex}
+                  href={button.url || "#"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "0.375rem",
+                    fontWeight: "500",
+                    color: "#000000",
+                    backgroundColor: "#ffb612",
+                    transition: "background-color 0.2s ease-in-out",
+                    textDecoration: "none",
+                    fontSize: "0.75rem",
+                    width: "calc(100% - 15px)", // Make buttons 15px less wide
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault() // Prevent actual navigation for testing
+                    handleLinkClick(
+                      button.text,
+                      button.url || "#",
+                      activeMenuItem?.title,
+                      activeCategoryContent.heading,
+                    )
+                  }}
+                >
+                  <span>{button.text}</span>
+                  <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                </Link>
+              ))}
+          </div>
+        </div>
+      ))
+    }
+
+    return null
+  }
+
   return (
     <nav style={{ position: "relative", width: "100%", overflow: "visible" }} ref={menuRef}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", position: "relative" }}>
@@ -559,8 +660,10 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                       setAnimationKey((prev) => prev + 1)
                       setIsHoveringActiveItem(true)
 
-                      // We don't log hover opens immediately anymore
-                      // The meaningful interaction timer will handle this after the threshold
+                      // Set the first category as active by default
+                      if (menuLists.length > 0) {
+                        setActiveCategory(menuLists[0].heading)
+                      }
                     }
                   }}
                   onMouseLeave={() => {
@@ -606,12 +709,12 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
               onMouseLeave={() => setIsHoveringDropdown(false)}
               style={{
                 position: "absolute",
-                left: 0, // Align to left edge of nav
+                left: 0, // Keep aligned to left edge of nav
                 top: "100%",
                 zIndex: 10,
                 marginTop: "calc(0.75rem + 11px)",
-                width: "100%", // Full width of nav
-                maxWidth: "100%", // Ensure it doesn't exceed nav width
+                width: "calc(100% + 180px)", // Increased from 140px to 180px to match the right edge of the Job Board button
+                maxWidth: "none", // Remove max-width constraint
                 backgroundColor: "#ffffff",
                 boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
                 borderRadius: "0.375rem",
@@ -620,7 +723,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 animation: "megaMenuSlideDown 0.3s ease-out forwards",
                 opacity: 0,
                 transform: "translateY(-10px)",
-                boxSizing: "border-box", // Add this to include padding in width calculation
+                boxSizing: "border-box", // Include padding in width calculation
               }}
               role="menu"
             >
@@ -642,245 +745,225 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 }}
               />
 
-              {/* Multi-column layout based on number of lists */}
+              {/* Two-panel layout */}
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    activeMenuLists.length === 1 ? "1fr" : activeMenuLists.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr",
-                  gap: "1.5rem",
+                  display: "flex",
+                  width: "100%",
                 }}
               >
-                {/* Map through all menu lists in their original order */}
-                {activeMenuLists.map((list, index) => (
-                  <div key={index} style={{ display: "flex", flexDirection: "column" }}>
-                    <h3
-                      style={{
-                        fontWeight: "bold",
-                        marginBottom: "0.5rem",
-                        color: "#003087", // Changed from "#3b82f6" to match footer blue
-                        paddingBottom: "0.25rem",
-                        fontSize: "1.0rem",
-                      }}
-                    >
-                      {list.heading}
-                    </h3>
-
-                    {/* Menu links - use them in their original order from Sanity */}
-                    {list.links && list.links.length > 0 && (
-                      <ul
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.875rem",
-                          marginBottom: "1rem",
-                          listStyle: "none", // Remove bullet points
-                          padding: 0,
-                        }}
-                      >
-                        {list.links
-                          .filter((link) => !link.hidden)
-                          .map((link) => (
-                            <li key={link._id}>
-                              <Link
-                                href={link.url || "/"}
-                                style={{
-                                  color: "#6b7280",
-                                  whiteSpace: "nowrap",
-                                  textDecoration: "none",
-                                  fontSize: "0.88rem",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "0.25rem",
-                                }}
-                                onClick={(e) => {
-                                  e.preventDefault() // Prevent actual navigation for testing
-                                  handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, list.heading) // Pass parent title and list heading
-                                }}
-                                role="menuitem"
-                              >
-                                <span>{link.title}</span>
-                                <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                              </Link>
-                            </li>
-                          ))}
-                      </ul>
-                    )}
-
-                    {/* CTA Buttons - Render for each column */}
-                    {list.ctaButtons && list.ctaButtons.length > 0 && (
-                      <div
-                        style={{
-                          marginTop: "15px", // Changed from 0 to 15px
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "0.5rem",
-                          marginBottom:
-                            (list.subLists && list.subLists.length > 0) ||
-                            (list.additionalLinks && list.additionalLinks.length > 0)
-                              ? "1rem"
-                              : 0,
-                        }}
-                      >
-                        {/* Use the buttons in the order they appear in the array */}
-                        {list.ctaButtons
-                          .filter((button) => !button.hidden)
-                          .map((button, buttonIndex) => (
-                            <Link
-                              key={buttonIndex}
-                              href={button.url || "#"}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "0.5rem 1rem",
-                                borderRadius: "0.375rem",
-                                fontWeight: "500",
-                                color: "#000000",
-                                backgroundColor: "#ffb612",
-                                transition: "background-color 0.2s ease-in-out",
-                                textDecoration: "none",
-                                fontSize: "0.98rem", // Added reduced font size
-                                width: "70%", // Set width to 70% of available space
-                                marginLeft: "0", // Align to the left
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault() // Prevent actual navigation for testing
-                                handleLinkClick(button.text, button.url || "#", activeMenuItem?.title, list.heading) // Pass parent title and list heading
-                              }}
-                            >
-                              <span>{button.text || "Learn More"}</span>
-                              <ChevronRight size={16} style={{ flexShrink: 0 }} />
-                            </Link>
-                          ))}
-                      </div>
-                    )}
-
-                    {/* Multiple Sub Lists - Only render if subLists exists and has items */}
-                    {list.subLists && list.subLists.length > 0 && (
-                      <div style={{ marginTop: "1rem" }}>
-                        {/* Use the subLists in the order they appear in the array */}
-                        {list.subLists
-                          .filter((subList) => !subList.hidden)
-                          .map((subList, subListIndex) => (
-                            <div
-                              key={subListIndex}
-                              style={{
-                                marginBottom:
-                                  subListIndex < list.subLists!.filter((sl) => !sl.hidden).length - 1 ? "1rem" : 0,
-                                borderTop: subListIndex === 0 ? "1px solid rgba(229, 231, 235, 0.5)" : "none", // Light separator for first sub-list
-                                paddingTop: subListIndex === 0 ? "0.75rem" : 0,
-                              }}
-                            >
-                              <h4
-                                style={{
-                                  fontWeight: "bold",
-                                  marginBottom: "0.5rem",
-                                  color: "#003087", // Match the main heading color
-                                  paddingBottom: "0.25rem",
-                                  fontSize: "0.9rem", // Slightly smaller than main heading
-                                }}
-                              >
-                                {subList.heading}
-                              </h4>
-                              <ul
-                                style={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: "0.75rem",
-                                  listStyle: "none", // Remove bullet points
-                                  padding: 0,
-                                }}
-                              >
-                                {/* Use the links in the order they appear in the array */}
-                                {subList.links
-                                  .filter((link) => !link.hidden)
-                                  .map((link) => (
-                                    <li key={link._id}>
-                                      <Link
-                                        href={link.url || "#"}
-                                        style={{
-                                          color: "#6b7280",
-                                          whiteSpace: "nowrap",
-                                          textDecoration: "none",
-                                          fontSize: "0.92rem", // Slightly smaller than main links
-                                          display: "flex",
-                                          alignItems: "center",
-                                          gap: "0.25rem",
-                                        }}
-                                        onClick={(e) => {
-                                          e.preventDefault() // Prevent actual navigation for testing
-                                          handleLinkClick(
-                                            link.title,
-                                            link.url || "#",
-                                            activeMenuItem?.title,
-                                            subList.heading,
-                                          ) // Pass parent title and sub-list heading
-                                        }}
-                                        role="menuitem"
-                                      >
-                                        <span>{link.title}</span>
-                                        <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                                      </Link>
-                                    </li>
-                                  ))}
-                              </ul>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-
-                    {/* Additional Links - Only render if additionalLinks exists and has items */}
-                    {list.additionalLinks && list.additionalLinks.length > 0 && (
-                      <div
-                        style={{
-                          marginTop: "31px", // Increased from 1rem (16px) to 31px (1rem + 15px)
-                          borderTop: "1px solid rgba(229, 231, 235, 0.5)", // Always add a separator
-                          paddingTop: "0.75rem",
-                        }}
-                      >
-                        <ul
+                {/* Left panel - Category links */}
+                <div
+                  style={{
+                    width: "220px",
+                    borderRight: "1px solid #e5e7eb",
+                    paddingRight: "1rem",
+                  }}
+                >
+                  <ul
+                    style={{
+                      listStyle: "none",
+                      padding: 0,
+                      margin: 0,
+                    }}
+                  >
+                    {activeMenuLists.map((list) => (
+                      <li key={list.heading} style={{ marginBottom: "0.5rem" }}>
+                        <button
+                          onClick={() => handleCategoryClick(list.heading)}
                           style={{
                             display: "flex",
-                            flexDirection: "column",
-                            gap: "0.75rem",
-                            listStyle: "none", // Remove bullet points
-                            padding: 0,
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            width: "100%",
+                            padding: "0.5rem",
+                            textAlign: "left",
+                            border: "none",
+                            borderRadius: "0.25rem",
+                            background: activeCategory === list.heading ? "#f3f4f6" : "transparent",
+                            color: activeCategory === list.heading ? "#003087" : "#4b5563",
+                            fontWeight: activeCategory === list.heading ? "600" : "normal",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
                           }}
                         >
-                          {/* Use the additionalLinks in the order they appear in the array */}
-                          {list.additionalLinks
+                          <span>{list.heading}</span>
+                          <ChevronRight size={16} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Right panel - Content area */}
+                <div
+                  style={{
+                    flex: 1,
+                    paddingLeft: "1.5rem",
+                    paddingRight: "1rem", // Add right padding
+                    display: "flex",
+                  }}
+                >
+                  {/* Main content area */}
+                  <div style={{ flex: "1 1 auto", maxWidth: "calc(100% - 200px)" }}>
+                    {activeCategoryContent && (
+                      <>
+                        {/* Non-clickable heading */}
+                        <h3
+                          style={{
+                            fontWeight: "bold",
+                            marginBottom: "1rem",
+                            color: "#003087",
+                            fontSize: "1.0rem",
+                          }}
+                        >
+                          Learn about {activeCategoryContent.heading.toLowerCase()}
+                        </h3>
+
+                        {/* Links */}
+                        <ul
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, 1fr)", // Changed from 3 to 2 columns
+                            gap: "0.75rem 2rem",
+                            listStyle: "none",
+                            padding: 0,
+                            margin: 0,
+                            marginBottom: "1.5rem",
+                          }}
+                        >
+                          {activeCategoryContent.links
                             .filter((link) => !link.hidden)
-                            .map((link, linkIndex) => (
-                              <li key={linkIndex}>
+                            .map((link) => (
+                              <li key={link._id}>
                                 <Link
-                                  href={link.url || "#"}
+                                  href={link.url || "/"}
                                   style={{
                                     color: "#6b7280",
-                                    whiteSpace: "nowrap",
                                     textDecoration: "none",
-                                    fontSize: "0.85rem", // Slightly smaller than main links
-                                    fontWeight: "bold", // Make the text bold
+                                    fontSize: "0.75rem",
                                     display: "flex",
                                     alignItems: "center",
                                     gap: "0.25rem",
                                   }}
                                   onClick={(e) => {
                                     e.preventDefault() // Prevent actual navigation for testing
-                                    handleLinkClick(link.text, link.url || "#", activeMenuItem?.title, list.heading) // Pass parent title and list heading
+                                    handleLinkClick(
+                                      link.title,
+                                      link.url || "/",
+                                      activeMenuItem?.title,
+                                      activeCategoryContent.heading,
+                                    )
                                   }}
                                   role="menuitem"
                                 >
-                                  <span>{link.text}</span>
+                                  <span>{link.title}</span>
                                   <ChevronRight size={12} style={{ flexShrink: 0 }} />
                                 </Link>
                               </li>
                             ))}
                         </ul>
-                      </div>
+
+                        {/* Information Resources section - using subLists */}
+                        {activeCategoryContent.subLists && activeCategoryContent.subLists.length > 0 && (
+                          <div style={{ marginTop: "1.5rem" }}>
+                            {activeCategoryContent.subLists
+                              .filter((subList) => !subList.hidden)
+                              .map((subList, subListIndex) => (
+                                <div key={`sublist-${subListIndex}`} style={{ marginBottom: "1.5rem" }}>
+                                  <h4
+                                    style={{
+                                      fontWeight: "600",
+                                      marginBottom: "0.75rem",
+                                      color: "#4b5563",
+                                      fontSize: "0.95rem",
+                                    }}
+                                  >
+                                    {subList.heading}
+                                  </h4>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gridTemplateColumns: "repeat(2, 1fr)",
+                                      gap: "1rem",
+                                    }}
+                                  >
+                                    {subList.links
+                                      .filter((link) => !link.hidden)
+                                      .map((link) => (
+                                        <Link
+                                          key={link._id}
+                                          href={link.url || "#"}
+                                          style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "0.75rem",
+                                            padding: "0rem",
+                                            borderRadius: "0.25rem",
+                                            backgroundColor: "#f9fafb",
+                                            textDecoration: "none",
+                                          }}
+                                          onClick={(e) => {
+                                            e.preventDefault() // Prevent actual navigation for testing
+                                            handleLinkClick(
+                                              link.title,
+                                              link.url || "#",
+                                              activeMenuItem?.title,
+                                              subList.heading,
+                                            )
+                                          }}
+                                        >
+                                          {/* Only show image if it exists */}
+                                          {link.image && (
+                                            <div style={{ flexShrink: 0 }}>
+                                              <Image
+                                                src={link.image || "/placeholder.svg"}
+                                                alt={link.title}
+                                                width={72}
+                                                height={56}
+                                                style={{ borderRadius: "0.25rem", objectFit: "cover" }}
+                                              />
+                                            </div>
+                                          )}
+                                          <span
+                                            style={{
+                                              fontSize: "0.75rem",
+                                              fontWeight: "500",
+                                              color: "#4b5563",
+                                            }}
+                                          >
+                                            {link.title}
+                                          </span>
+                                        </Link>
+                                      ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                ))}
+
+                  {/* CTA buttons area */}
+                  {(activeCategoryContent?.ctaButtons?.length > 0 ||
+                    activeCategoryContent?.ctaButtonGroups?.length > 0) && (
+                    <div
+                      style={{
+                        width: "165px", // Reduced from 180px to make CTA buttons 15px less wide
+                        flexShrink: 0, // Prevent shrinking
+                        marginLeft: "1.5rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1rem",
+                        paddingLeft: "1.5rem",
+                        borderLeft: "1px solid #e5e7eb",
+                      }}
+                    >
+                      {renderCtaButtonGroups()}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -47,6 +47,15 @@ export default {
       description: "External URL (optional)",
     },
     {
+      name: "image",
+      title: "Image",
+      type: "image",
+      description: "Optional image to display with this menu item (used in subLists)",
+      options: {
+        hotspot: true,
+      },
+    },
+    {
       name: "menuLists",
       title: "Menu Lists",
       type: "array",
@@ -73,4 +82,3 @@ export default {
     },
   },
 }
-

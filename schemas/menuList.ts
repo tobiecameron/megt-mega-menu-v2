@@ -45,8 +45,89 @@ export default {
       },
     },
     {
+      name: "ctaButtonGroups",
+      title: "Call to Action Button Groups",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "ctaButtonGroup",
+          fields: [
+            {
+              name: "heading",
+              title: "Group Heading",
+              type: "string",
+              description: "Heading for this group of buttons",
+              validation: (Rule: Rule) => Rule.required(),
+            },
+            {
+              name: "hidden",
+              title: "Hide this group",
+              type: "boolean",
+              description: "Toggle to hide this entire group of buttons",
+              initialValue: false,
+            },
+            {
+              name: "buttons",
+              title: "Buttons",
+              type: "array",
+              of: [
+                {
+                  type: "object",
+                  name: "ctaButton",
+                  fields: [
+                    {
+                      name: "text",
+                      title: "Button Text",
+                      type: "string",
+                      validation: (Rule: Rule) => Rule.required(),
+                    },
+                    {
+                      name: "hidden",
+                      title: "Hide this button",
+                      type: "boolean",
+                      description: "Toggle to hide this button",
+                      initialValue: false,
+                    },
+                    {
+                      name: "url",
+                      title: "URL",
+                      type: "url",
+                      description: "Optional URL for the button",
+                    },
+                  ],
+                },
+              ],
+              validation: (Rule: Rule) => Rule.required().min(1),
+              description: "Add buttons to this group",
+              options: {
+                sortable: true, // Enable drag-to-reorder functionality
+              },
+            },
+          ],
+          preview: {
+            select: {
+              heading: "heading",
+              buttonCount: "buttons.length",
+              hidden: "hidden",
+            },
+            prepare({ heading, buttonCount, hidden }) {
+              return {
+                title: `${heading || "Untitled Group"}${hidden ? " (Hidden)" : ""}`,
+                subtitle: `${buttonCount || 0} buttons`,
+              }
+            },
+          },
+        },
+      ],
+      description: "Add groups of call-to-action buttons that will appear on the right side of the menu",
+      options: {
+        sortable: true, // Enable drag-to-reorder functionality
+      },
+    },
+    {
       name: "ctaButtons",
-      title: "Call to Action Buttons",
+      title: "Call to Action Buttons (Legacy)",
       type: "array",
       of: [
         {
@@ -72,11 +153,17 @@ export default {
               type: "url",
               description: "Optional URL for the button",
             },
+            {
+              name: "group",
+              title: "Button Group",
+              type: "string",
+              description: "Group name for organizing buttons with headings (leave empty for default group)",
+            },
           ],
         },
       ],
-      description: "Add up to 2 call-to-action buttons at the bottom of the list",
-      validation: (Rule: Rule) => Rule.max(2).warning("You can add up to 2 buttons"),
+      description:
+        "DEPRECATED: Please use 'Call to Action Button Groups' instead. This field is kept for backward compatibility.",
       options: {
         sortable: true, // Enable drag-to-reorder functionality
       },
@@ -172,18 +259,17 @@ export default {
     select: {
       heading: "heading",
       linksCount: "links.length",
-      buttonsCount: "ctaButtons.length",
+      buttonGroupsCount: "ctaButtonGroups.length",
       subListsCount: "subLists.length",
       additionalLinksCount: "additionalLinks.length",
       hidden: "hidden",
     },
     prepare(value) {
-      const { heading, linksCount, buttonsCount, subListsCount, additionalLinksCount, hidden } = value
+      const { heading, linksCount, buttonGroupsCount, subListsCount, additionalLinksCount, hidden } = value
       return {
         title: `${heading || "Untitled List"}${hidden ? " (Hidden)" : ""}`,
-        subtitle: `${linksCount || 0} links, ${buttonsCount || 0} buttons, ${subListsCount || 0} sub-lists, ${additionalLinksCount || 0} additional links`,
+        subtitle: `${linksCount || 0} links, ${buttonGroupsCount || 0} button groups, ${subListsCount || 0} sub-lists, ${additionalLinksCount || 0} additional links`,
       }
     },
   },
 }
-

@@ -37,6 +37,19 @@ const sampleMenuData = {
               hidden: false,
             },
           ],
+          ctaButtonGroups: [
+            {
+              heading: "Quick Actions",
+              hidden: false,
+              buttons: [
+                {
+                  text: "Get Started",
+                  url: "/get-started",
+                  hidden: false,
+                },
+              ],
+            },
+          ],
           subLists: [
             {
               heading: "Information About",
@@ -263,6 +276,7 @@ export async function getMenuData() {
           heading,
           order,
           hidden,
+          ctaSectionTitle,
           "links": links[]-> {
             _id,
             title,
@@ -274,7 +288,17 @@ export async function getMenuData() {
           "ctaButtons": ctaButtons[] {
             text,
             url,
+            group,
             hidden
+          },
+          "ctaButtonGroups": ctaButtonGroups[] {
+            heading,
+            hidden,
+            "buttons": buttons[] {
+              text,
+              url,
+              hidden
+            }
           },
           "subLists": subLists[] {
             heading,
@@ -285,7 +309,8 @@ export async function getMenuData() {
               "slug": slug.current,
               url,
               order,
-              hidden
+              hidden,
+              "image": image.asset->url
             }
           },
           "additionalLinks": additionalLinks[] {
@@ -326,6 +351,7 @@ export async function getMenuData() {
             heading,
             order,
             hidden,
+            ctaSectionTitle,
             "links": links[]-> {
               _id,
               title,
@@ -337,7 +363,17 @@ export async function getMenuData() {
             "ctaButtons": ctaButtons[] {
               text,
               url,
+              group,
               hidden
+            },
+            "ctaButtonGroups": ctaButtonGroups[] {
+              heading,
+              hidden,
+              "buttons": buttons[] {
+                text,
+                url,
+                hidden
+              }
             },
             "subLists": subLists[] {
               heading,
