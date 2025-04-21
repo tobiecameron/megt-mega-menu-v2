@@ -17,6 +17,7 @@ type MenuInteractionContextType = {
   userName: string | null
   setUserName: (name: string) => void
   sessionStartTime: string | null
+  handleJobBoardClick: () => void
 }
 
 const MenuInteractionContext = createContext<MenuInteractionContextType | undefined>(undefined)
@@ -166,6 +167,11 @@ export function MenuInteractionProvider({ children }: { children: React.ReactNod
     console.log("New session started with sheet name:", calculatedSheetName)
   }
 
+  const handleJobBoardClick = () => {
+    addInteraction("Job Board (clicked)", "/jobs")
+    showNotification("Job Board (clicked)")
+  }
+
   return (
     <MenuInteractionContext.Provider
       value={{
@@ -176,6 +182,7 @@ export function MenuInteractionProvider({ children }: { children: React.ReactNod
         userName,
         setUserName: handleSetUserName,
         sessionStartTime,
+        handleJobBoardClick,
       }}
     >
       {children}
@@ -190,4 +197,3 @@ export function useMenuInteractions() {
   }
   return context
 }
-

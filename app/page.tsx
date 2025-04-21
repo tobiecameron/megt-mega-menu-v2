@@ -8,71 +8,52 @@ import { MenuInteractionProvider } from "@/components/menu-interaction-context"
 import { InteractionLog } from "@/components/interaction-log"
 import { UserCaptureOverlay } from "@/components/user-capture-overlay"
 import { useEffect, useState } from "react"
+import Link from "next/link"
+// First, import the ArrowRight icon at the top of the file with the other imports
+import { ArrowRight } from "lucide-react"
 
-export default function Home() {
-  const [menuData, setMenuData] = useState({ items: [], otherItems: [] })
-  const [footerData, setFooterData] = useState({
-    items: [],
-    otherItems: [],
-    columns: [],
-    policyLinks: [],
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showUserCapture, setShowUserCapture] = useState(true)
-  const [userName, setUserName] = useState<string | null>(null)
+// Define types for our components
+type OtherItem = {
+  _id: string
+  title: string
+  itemType: string
+  buttonText?: string
+  buttonUrl?: string
+  placement?: string
+  order?: number
+  hidden?: boolean
+}
 
-  useEffect(() => {
-    // Check if user info is already in localStorage
-    const storedUserName = localStorage.getItem("megtUserName")
-    if (storedUserName) {
-      setUserName(storedUserName)
-      setShowUserCapture(false)
-    }
-
-    async function fetchData() {
-      setIsLoading(true)
-      setError(null)
-
-      try {
-        // Fetch menu data from API route
-        const menuResponse = await fetch("/api/menu")
-        if (!menuResponse.ok) {
-          throw new Error(`Failed to fetch menu data: ${menuResponse.statusText}`)
-        }
-        const menuData = await menuResponse.json()
-        setMenuData(menuData || { items: [], otherItems: [] })
-
-        // Fetch footer data from API route
-        const footerResponse = await fetch("/api/footer")
-        if (!footerResponse.ok) {
-          throw new Error(`Failed to fetch footer data: ${footerResponse.statusText}`)
-        }
-        const footerData = await footerResponse.json()
-        setFooterData(
-          footerData || {
-            items: [],
-            otherItems: [],
-            columns: [],
-            policyLinks: [],
-          },
-        )
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        setError(error instanceof Error ? error.message : "An unknown error occurred")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-
-  // Handle user capture completion
-  const handleUserCaptured = (name: string) => {
-    setUserName(name)
-    setShowUserCapture(false)
+type MainContentProps = {
+  menuData: {
+    items: any[]
+    otherItems: OtherItem[]
   }
+  footerData: {
+    items: any[]
+    otherItems: any[]
+    columns: any[]
+    policyLinks: any[]
+  }
+  isLoading: boolean
+  error: string | null
+  showUserCapture: boolean
+  userName: string | null
+  handleUserCaptured: (name: string) => void
+}
+
+// Create a separate component for the main content that uses the context
+function MainContent({
+  menuData,
+  footerData,
+  isLoading,
+  error,
+  showUserCapture,
+  userName,
+  handleUserCaptured,
+}: MainContentProps) {
+  // Now we can safely use the hook inside the provider
+  const { addInteraction, showNotification, handleJobBoardClick } = useMenuInteractions()
 
   // Overlay opacity (0 to 1, where 1 is fully opaque)
   const overlayOpacity = 0.85
@@ -100,6 +81,11 @@ export default function Home() {
     )
   }
 
+  // Find Job Board button in otherItems
+  const jobBoardButton = menuData.otherItems.find((item) => !item.hidden && item.itemType === "jobBoardButton")
+
+  console.log("Job Board Button:", jobBoardButton) // Debug log
+
   // Filter secondary nav items from otherItems
   const secondaryNavItems = menuData.otherItems.filter(
     (item) => !item.hidden && item.placement === "headerSecondary" && item.itemType === "secondaryNavLink",
@@ -110,8 +96,56 @@ export default function Home() {
     (item) => !item.hidden && item.placement === "headerSecondary" && item.itemType === "actionButton",
   )
 
+  // Then update the JobBoardButton component to include the arrow
+  // Find the JobBoardButton component and replace it with this version:
+
+  // Create Job Board button component
+  const JobBoardButton = ({ item, className = "", style = {} }) => (
+    <Link
+      href={item.buttonUrl || "/jobs"}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#003087", // Blue background to match other buttons
+        color: "#ffffff", // White text
+        fontWeight: "bold",
+        padding: "0 1.5rem",
+        borderRadius: "0.375rem",
+        fontSize: "1rem",
+        textDecoration: "none",
+        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)", // Subtle shadow
+        transition: "background-color 0.2s ease-in-out",
+        gap: "0.5rem", // Add gap between text and arrow
+        ...style,
+      }}
+      className={className}
+      onClick={(e) => {
+        e.preventDefault() // Prevent navigation for testing
+        handleJobBoardClick()
+      }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.backgroundColor = "#002266" // Darker blue on hover
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.backgroundColor = "#003087" // Back to original color
+      }}
+    >
+      <span>{item.buttonText || "Job Board"}</span>
+      <ArrowRight size={16} color="#ffb612" /> {/* Yellow arrow */}
+    </Link>
+  )
+
+  // Check if we have a double-height job board button
+  const hasDoubleHeightJobBoard = jobBoardButton && jobBoardButton.placement === "headerDoubleHeight"
+
+  // Debug logs
+  console.log("Menu Data:", menuData)
+  console.log("Other Items:", menuData.otherItems)
+  console.log("Has Double Height Job Board:", hasDoubleHeightJobBoard)
+
   return (
-    <MenuInteractionProvider>
+    <>
       {showUserCapture && <UserCaptureOverlay onUserCaptured={handleUserCaptured} />}
 
       <div
@@ -143,9 +177,9 @@ export default function Home() {
               width: "100%",
               height: "100%",
               background: `linear-gradient(to bottom, 
-              rgba(0, 48, 135, ${initialOverlayOpacity}) 0%, 
-              rgba(0, 48, 135, ${initialOverlayOpacity}) 80%, 
-              rgba(0, 48, 135, ${overlayOpacity}) 100%)`,
+             rgba(0, 48, 135, ${initialOverlayOpacity}) 0%, 
+             rgba(0, 48, 135, ${initialOverlayOpacity}) 80%, 
+             rgba(0, 48, 135, ${overlayOpacity}) 100%)`,
               zIndex: 1,
             }}
           />
@@ -223,6 +257,32 @@ export default function Home() {
               />
             </div>
 
+            {/* Job Board Button - Double Height (only shown when placement is headerDoubleHeight) */}
+            {jobBoardButton && jobBoardButton.placement === "headerDoubleHeight" && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: "10px", // Match container padding
+                  top: 0,
+                  height: "100%", // Full header height
+                  display: "flex",
+                  alignItems: "center",
+                  zIndex: 3, // Above other elements
+                }}
+              >
+                <JobBoardButton
+                  item={jobBoardButton}
+                  style={{
+                    height: "calc(100% - 16px)", // Slightly less than full height for visual padding
+                    marginRight: "10px", // Space from the right edge
+                    marginLeft: "15px", // Added margin to the left side
+                    paddingLeft: "20px", // Added padding to the left side
+                    paddingRight: "20px", // Added padding to the right side for balance
+                  }}
+                />
+              </div>
+            )}
+
             {/* Navigation container with fixed heights */}
             <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
               {/* Secondary Navigation - Fixed height */}
@@ -233,26 +293,59 @@ export default function Home() {
                   height: "40px", // Fixed height
                   display: "flex",
                   alignItems: "center",
+                  // Add right padding if double-height button is enabled
+                  paddingRight: hasDoubleHeightJobBoard ? "170px" : "0",
                 }}
               >
-                <SecondaryNav items={secondaryNavItems} otherItems={secondaryNavActionButtons} />
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+                  <SecondaryNav items={secondaryNavItems} otherItems={secondaryNavActionButtons} />
+
+                  {/* Job Board Button in Secondary Nav */}
+                  {jobBoardButton && jobBoardButton.placement === "headerSecondary" && (
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <JobBoardButton
+                        item={jobBoardButton}
+                        style={{
+                          height: "28px", // Match height of other secondary nav items
+                          fontSize: "0.805rem", // Smaller font size for secondary nav
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Main Navigation - Fixed height */}
               <div
                 style={{
                   display: "flex",
-                  justifyContent: "flex-end", // Changed from space-between to flex-end
+                  justifyContent: "space-between", // Changed to space-between to allow for button on right
                   alignItems: "center",
                   paddingLeft: "140px", // Make space for logo
                   height: "60px", // Fixed height (100px total - 40px secondary nav)
+                  // Add right padding if double-height button is enabled
+                  paddingRight: hasDoubleHeightJobBoard ? "170px" : "0",
                 }}
               >
-                {/* Mega menu on the right */}
+                {/* Mega menu */}
                 <MegaMenu
                   menuItems={menuData.items}
-                  otherItems={menuData.otherItems.filter((item) => !item.hidden && item.placement === "headerMain")}
+                  otherItems={menuData.otherItems.filter(
+                    (item) => !item.hidden && item.placement === "headerMain" && item.itemType !== "jobBoardButton",
+                  )}
                 />
+
+                {/* Job Board Button in Main Nav */}
+                {jobBoardButton && jobBoardButton.placement === "headerMain" && (
+                  <div style={{ marginLeft: "2rem" }}>
+                    <JobBoardButton
+                      item={jobBoardButton}
+                      style={{
+                        height: "40px", // Match height of other main nav items
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -298,7 +391,90 @@ export default function Home() {
           />
         </div>
       </div>
-    </MenuInteractionProvider>
+    </>
   )
 }
 
+// Import this after the component definition to avoid the circular reference
+import { useMenuInteractions } from "@/components/menu-interaction-context"
+
+export default function Home() {
+  const [menuData, setMenuData] = useState({ items: [], otherItems: [] })
+  const [footerData, setFooterData] = useState({
+    items: [],
+    otherItems: [],
+    columns: [],
+    policyLinks: [],
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showUserCapture, setShowUserCapture] = useState(true)
+  const [userName, setUserName] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Check if user info is already in localStorage
+    const storedUserName = localStorage.getItem("megtUserName")
+    if (storedUserName) {
+      setUserName(storedUserName)
+      setShowUserCapture(false)
+    }
+
+    async function fetchData() {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        // Fetch menu data from API route
+        const menuResponse = await fetch("/api/menu")
+        if (!menuResponse.ok) {
+          throw new Error(`Failed to fetch menu data: ${menuResponse.statusText}`)
+        }
+        const menuData = await menuResponse.json()
+        console.log("Fetched menu data:", menuData) // Debug log
+        setMenuData(menuData || { items: [], otherItems: [] })
+
+        // Fetch footer data from API route
+        const footerResponse = await fetch("/api/footer")
+        if (!footerResponse.ok) {
+          throw new Error(`Failed to fetch footer data: ${footerResponse.statusText}`)
+        }
+        const footerData = await footerResponse.json()
+        setFooterData(
+          footerData || {
+            items: [],
+            otherItems: [],
+            columns: [],
+            policyLinks: [],
+          },
+        )
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        setError(error instanceof Error ? error.message : "An unknown error occurred")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Handle user capture completion
+  const handleUserCaptured = (name: string) => {
+    setUserName(name)
+    setShowUserCapture(false)
+  }
+
+  return (
+    <MenuInteractionProvider>
+      <MainContent
+        menuData={menuData}
+        footerData={footerData}
+        isLoading={isLoading}
+        error={error}
+        showUserCapture={showUserCapture}
+        userName={userName}
+        handleUserCaptured={handleUserCaptured}
+      />
+    </MenuInteractionProvider>
+  )
+}

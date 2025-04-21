@@ -26,6 +26,7 @@ export default {
         list: [
           { title: "Action Button", value: "actionButton" },
           { title: "Secondary Nav Link", value: "secondaryNavLink" },
+          { title: "Job Board Button", value: "jobBoardButton" },
           // Add other types here if needed in the future
         ],
       },
@@ -37,7 +38,7 @@ export default {
       title: "Button Text",
       type: "string",
       description: "Text to display on the button",
-      hidden: ({ parent }) => parent?.itemType !== "actionButton",
+      hidden: ({ parent }) => parent?.itemType !== "actionButton" && parent?.itemType !== "jobBoardButton",
     },
     {
       name: "buttonUrl",
@@ -53,6 +54,7 @@ export default {
         list: [
           { title: "Header - Main Navigation", value: "headerMain" },
           { title: "Header - Secondary Navigation", value: "headerSecondary" },
+          { title: "Header - Double Height (Both Navs)", value: "headerDoubleHeight" },
           { title: "Footer - Right Side", value: "footer" },
         ],
       },
@@ -76,16 +78,16 @@ export default {
     },
     prepare(value) {
       const { title, itemType, buttonText, placement, hidden } = value
-      const typeLabel =
-        itemType === "actionButton"
-          ? "Action Button"
-          : itemType === "secondaryNavLink"
-            ? "Secondary Nav Link"
-            : itemType
+
+      let typeLabel = "Unknown"
+      if (itemType === "actionButton") typeLabel = "Action Button"
+      if (itemType === "secondaryNavLink") typeLabel = "Secondary Nav Link"
+      if (itemType === "jobBoardButton") typeLabel = "Job Board Button"
 
       let placementLabel = "Unknown"
       if (placement === "headerMain") placementLabel = "Header - Main Nav"
       if (placement === "headerSecondary") placementLabel = "Header - Secondary Nav"
+      if (placement === "headerDoubleHeight") placementLabel = "Header - Double Height"
       if (placement === "footer") placementLabel = "Footer"
 
       return {
@@ -95,4 +97,3 @@ export default {
     },
   },
 }
-

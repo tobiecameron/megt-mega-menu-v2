@@ -104,6 +104,16 @@ const sampleMenuData = {
       order: 1,
       hidden: false,
     },
+    {
+      _id: "job-board",
+      title: "Job Board Button",
+      itemType: "jobBoardButton",
+      buttonText: "Job Board",
+      buttonUrl: "/jobs",
+      placement: "headerMain",
+      order: 2,
+      hidden: false,
+    },
   ],
 }
 
@@ -286,7 +296,7 @@ export async function getMenuData() {
         }
       }
     },
-    "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary")] | order(order asc) {
+    "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary" || placement == "headerDoubleHeight")] | order(order asc) {
       _id,
       title,
       itemType,
@@ -348,7 +358,7 @@ export async function getMenuData() {
             }
           }
         },
-        "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary")] | order(order asc) {
+        "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary" || placement == "headerDoubleHeight")] | order(order asc) {
           _id,
           title,
           itemType,
@@ -442,4 +452,3 @@ export async function getFooterItems() {
     return sampleFooterData
   }
 }
-

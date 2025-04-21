@@ -77,16 +77,23 @@ type MegaMenuProps = {
   otherItems: OtherItem[]
 }
 
+// Threshold for meaningful interaction in milliseconds
+const MEANINGFUL_INTERACTION_THRESHOLD = 2000 // 2 seconds
+
 export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [trianglePosition, setTrianglePosition] = useState(0)
   const [animationKey, setAnimationKey] = useState(0) // Add key for forcing animation reset
+  const [isHoveringActiveItem, setIsHoveringActiveItem] = useState(false)
+  const [isHoveringDropdown, setIsHoveringDropdown] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const navRef = useRef<HTMLUListElement>(null)
   const menuItemRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
   const firstItemRef = useRef<HTMLLIElement | null>(null)
   const lastItemRef = useRef<HTMLLIElement | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const meaningfulInteractionTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const menuOpenTimeRef = useRef<number | null>(null)
   const { addInteraction, showNotification } = useMenuInteractions()
 
   // Default minimum width for the mega menu
@@ -252,7 +259,73 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     return () => clearTimeout(timer)
   }, [activeMenu, calculateTrianglePosition])
 
-  // Handle menu click
+  // Start tracking meaningful interaction when menu opens
+  useEffect(() => {
+    // When a menu becomes active, start the timer
+    if (activeMenu) {
+      // Record the time when the menu was opened
+      menuOpenTimeRef.current = Date.now()
+
+      // Clear any existing timer
+      if (meaningfulInteractionTimerRef.current) {
+        clearTimeout(meaningfulInteractionTimerRef.current)
+      }
+
+      // Set a new timer for meaningful interaction
+      meaningfulInteractionTimerRef.current = setTimeout(() => {
+        // Find the active menu item
+        const activeItem = items.find((item) => item._id === activeMenu)
+        if (activeItem) {
+          // Log the interaction as meaningful after threshold is reached
+          addInteraction(`${activeItem.title} (meaningful open)`, `#${activeItem._id}`)
+        }
+      }, MEANINGFUL_INTERACTION_THRESHOLD)
+    } else {
+      // Menu closed, clear the timer
+      if (meaningfulInteractionTimerRef.current) {
+        clearTimeout(meaningfulInteractionTimerRef.current)
+        meaningfulInteractionTimerRef.current = null
+      }
+      menuOpenTimeRef.current = null
+    }
+
+    // Clean up on unmount
+    return () => {
+      if (meaningfulInteractionTimerRef.current) {
+        clearTimeout(meaningfulInteractionTimerRef.current)
+      }
+    }
+  }, [activeMenu, items, addInteraction])
+
+  // Effect to handle menu closing based on hover states
+  useEffect(() => {
+    if (!activeMenu) return
+
+    // If neither the dropdown nor the active menu item is being hovered, close the menu
+    if (!isHoveringDropdown && !isHoveringActiveItem) {
+      const timer = setTimeout(() => {
+        // Find the active menu item to log its title
+        const activeItem = items.find((item) => item._id === activeMenu)
+        if (activeItem) {
+          // Calculate how long the menu was open
+          const openDuration = menuOpenTimeRef.current ? Date.now() - menuOpenTimeRef.current : 0
+
+          // Only log the close interaction if it was open for a meaningful amount of time
+          if (openDuration >= MEANINGFUL_INTERACTION_THRESHOLD) {
+            // Log the interaction when closing by mouse leave
+            addInteraction(
+              `${activeItem.title} (closed by mouse leave after ${Math.round(openDuration / 1000)}s)`,
+              `#${activeItem._id}`,
+            )
+          }
+        }
+        setActiveMenu(null)
+      }, 100) // Small delay to prevent flickering during transition between elements
+
+      return () => clearTimeout(timer)
+    }
+  }, [isHoveringDropdown, isHoveringActiveItem, activeMenu, items, addInteraction])
+
   const handleMenuClick = useCallback(
     (id: string, title: string, hasChildren: boolean) => {
       // Check if we're closing an already open menu
@@ -263,8 +336,17 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
         // Find the active menu item to log its title
         const activeItem = items.find((item) => item._id === activeMenu)
         if (activeItem) {
-          // Log the interaction when closing by clicking another menu item
-          addInteraction(`${activeItem.title} (closed by clicking another menu item)`, `#${activeItem._id}`)
+          // Calculate how long the menu was open
+          const openDuration = menuOpenTimeRef.current ? Date.now() - menuOpenTimeRef.current : 0
+
+          // Only log the close interaction if it was open for a meaningful amount of time
+          if (openDuration >= MEANINGFUL_INTERACTION_THRESHOLD) {
+            // Log the interaction when closing by clicking another menu item
+            addInteraction(
+              `${activeItem.title} (closed by clicking another menu item after ${Math.round(openDuration / 1000)}s)`,
+              `#${activeItem._id}`,
+            )
+          }
         }
 
         // Close the active menu
@@ -275,12 +357,34 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
       if (hasChildren) {
         // Only use opened/closed terminology for items with children
         if (isClosing) {
-          addInteraction(`${title} (closed)`, `#${id}`)
-          showNotification(`${title} (closed)`)
+          // Calculate how long the menu was open
+          const openDuration = menuOpenTimeRef.current ? Date.now() - menuOpenTimeRef.current : 0
+
+          // Only log the close interaction if it was open for a meaningful amount of time
+          if (openDuration >= MEANINGFUL_INTERACTION_THRESHOLD) {
+            addInteraction(`${title} (closed after ${Math.round(openDuration / 1000)}s)`, `#${id}`)
+            showNotification(`${title} (closed)`)
+          }
           setActiveMenu(null)
         } else {
           // If we're switching between menus, close the current one first
           if (activeMenu !== null) {
+            // Find the active menu item to log its title
+            const activeItem = items.find((item) => item._id === activeMenu)
+            if (activeItem) {
+              // Calculate how long the menu was open
+              const openDuration = menuOpenTimeRef.current ? Date.now() - menuOpenTimeRef.current : 0
+
+              // Only log the close interaction if it was open for a meaningful amount of time
+              if (openDuration >= MEANINGFUL_INTERACTION_THRESHOLD) {
+                // Log the interaction when closing by clicking another menu item
+                addInteraction(
+                  `${activeItem.title} (closed by switching to ${title} after ${Math.round(openDuration / 1000)}s)`,
+                  `#${activeItem._id}`,
+                )
+              }
+            }
+
             setActiveMenu(null)
             // Small delay to ensure the previous menu is closed before opening the new one
             setTimeout(() => {
@@ -293,8 +397,10 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             setActiveMenu(id)
           }
 
-          addInteraction(`${title} (opened)`, `#${id}`)
-          showNotification(`${title} (opened)`)
+          // For click opens, we log immediately (not waiting for the threshold)
+          // since a click is already a deliberate action
+          addInteraction(`${title} (opened by clicking)`, `#${id}`)
+          showNotification(`${title} (opened by clicking)`)
         }
       } else {
         // For items without children, just show "clicked"
@@ -312,9 +418,18 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
         // Find the active menu item to log its title
         const activeItem = items.find((item) => item._id === activeMenu)
         if (activeItem) {
-          // Log the interaction when closing by clicking outside
-          addInteraction(`${activeItem.title} (closed by clicking outside)`, `#${activeItem._id}`)
-          showNotification(`${activeItem.title} (closed by clicking outside)`)
+          // Calculate how long the menu was open
+          const openDuration = menuOpenTimeRef.current ? Date.now() - menuOpenTimeRef.current : 0
+
+          // Only log the close interaction if it was open for a meaningful amount of time
+          if (openDuration >= MEANINGFUL_INTERACTION_THRESHOLD) {
+            // Log the interaction when closing by clicking outside
+            addInteraction(
+              `${activeItem.title} (closed by clicking outside after ${Math.round(openDuration / 1000)}s)`,
+              `#${activeItem._id}`,
+            )
+            showNotification(`${activeItem.title} (closed by clicking outside)`)
+          }
         }
 
         // Close the menu
@@ -422,6 +537,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             const hasMenuLists = menuLists.length > 0
             const isFirstItem = index === 0
             const isLastItem = index === items.length - 1
+            const isActive = activeMenu === item._id
 
             return (
               <li
@@ -432,6 +548,25 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 <button
                   ref={(el) => (menuItemRefs.current[item._id] = el)}
                   onClick={() => handleMenuClick(item._id, item.title, hasMenuLists)}
+                  onMouseEnter={() => {
+                    // Set hovering state for the active menu item
+                    if (isActive) {
+                      setIsHoveringActiveItem(true)
+                    }
+                    // Open menu on hover if it has children
+                    else if (hasMenuLists) {
+                      setActiveMenu(item._id)
+                      setAnimationKey((prev) => prev + 1)
+                      setIsHoveringActiveItem(true)
+
+                      // We don't log hover opens immediately anymore
+                      // The meaningful interaction timer will handle this after the threshold
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    // Clear hovering state
+                    setIsHoveringActiveItem(false)
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -448,7 +583,15 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                   aria-haspopup={hasMenuLists ? "true" : "false"}
                 >
                   <span>{item.title}</span>
-                  {hasMenuLists && <ChevronDown size={18} />}
+                  {hasMenuLists && (
+                    <ChevronDown
+                      size={18}
+                      style={{
+                        transform: activeMenu === item._id ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.3s ease",
+                      }}
+                    />
+                  )}
                 </button>
               </li>
             )
@@ -459,6 +602,8 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             <div
               key={`dropdown-${activeMenu}-${animationKey}`}
               ref={dropdownRef}
+              onMouseEnter={() => setIsHoveringDropdown(true)}
+              onMouseLeave={() => setIsHoveringDropdown(false)}
               style={{
                 position: "absolute",
                 left: 0, // Align to left edge of nav

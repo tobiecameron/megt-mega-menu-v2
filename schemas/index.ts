@@ -6,4 +6,3 @@ import footerColumn from "./footerColumn"
 import otherItem from "./otherItem"
 
 export const schemaTypes = [menu, menuItem, menuList, footerItem, footerColumn, otherItem]
-

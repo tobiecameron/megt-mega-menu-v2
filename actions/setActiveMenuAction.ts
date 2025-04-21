@@ -47,6 +47,11 @@ export const setActiveMenuAction = (props) => {
         }
       } catch (err) {
         console.error("Error updating menu status:", err)
+        // Add more detailed error logging
+        if (err instanceof Error) {
+          console.error("Error message:", err.message)
+          console.error("Error stack:", err.stack)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -54,4 +59,3 @@ export const setActiveMenuAction = (props) => {
     disabled: isLoading,
   }
 }
-
