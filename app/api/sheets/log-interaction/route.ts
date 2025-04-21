@@ -4,7 +4,7 @@ import { JWT } from "google-auth-library"
 
 // Google Sheets API configuration
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-const SPREADSHEET_ID = "1RFjnX_OLRDsOosz8_uuuohW_FvQheHfaL-mj0wpaspM" // Your spreadsheet ID
+const SPREADSHEET_ID = "170FIDR-g5sHminZUtnfJIGUt40KcIpfQVQbS8UXd514" // Your spreadsheet ID
 
 export async function POST(request: Request) {
   try {
