@@ -3,7 +3,7 @@ import type { Rule } from "@sanity/validation"
 export default {
   name: "menuList",
   title: "Menu List",
-  type: "document",
+  type: "object", // Changed from "document" to "object" since this is embedded in menuItem
   fields: [
     {
       name: "heading",
@@ -11,6 +11,61 @@ export default {
       type: "string",
       description: "The heading for this list (not linked)",
       validation: (Rule: Rule) => Rule.required(),
+    },
+    {
+      name: "contentHeading",
+      title: "Content Area Heading",
+      type: "string",
+      description:
+        "Optional custom heading for the content area (defaults to 'Learn about [list heading]' if not provided)",
+    },
+    {
+      name: "hasCustomContent",
+      title: "Add Custom Content",
+      type: "boolean",
+      description: "Enable to add custom content to this menu list",
+      initialValue: false,
+    },
+    {
+      name: "customContent",
+      title: "Custom Content",
+      type: "array",
+      of: [
+        {
+          type: "block",
+          styles: [
+            { title: "Normal", value: "normal" },
+            { title: "H3", value: "h3" },
+            { title: "H4", value: "h4" },
+          ],
+          lists: [
+            { title: "Bullet", value: "bullet" },
+            { title: "Numbered", value: "number" },
+          ],
+          marks: {
+            decorators: [
+              { title: "Strong", value: "strong" },
+              { title: "Emphasis", value: "em" },
+            ],
+            annotations: [
+              {
+                name: "link",
+                type: "object",
+                title: "Link",
+                fields: [
+                  {
+                    name: "href",
+                    type: "url",
+                    title: "URL",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+      description: "Add custom content to display in the menu list",
+      hidden: ({ parent }) => !parent?.hasCustomContent,
     },
     {
       name: "hidden",
@@ -39,10 +94,187 @@ export default {
         },
       ],
       description: "Select Child Menu items to include in this list",
-      validation: (Rule: Rule) => Rule.required(),
+      // Make links optional
+      validation: (Rule: Rule) => Rule,
       options: {
         sortable: true, // Enable drag-to-reorder functionality
       },
+    },
+    {
+      name: "primaryButton",
+      title: "Primary Button (Below Links)",
+      type: "object",
+      description: "Add a yellow button that appears directly below the links section",
+      fields: [
+        {
+          name: "text",
+          title: "Button Text",
+          type: "string",
+          validation: (Rule: Rule) => Rule.required(),
+        },
+        {
+          name: "url",
+          title: "URL",
+          type: "url",
+          description: "URL for the button (optional)",
+        },
+        {
+          name: "hidden",
+          title: "Hide this button",
+          type: "boolean",
+          description: "Toggle to hide this button",
+          initialValue: false,
+        },
+      ],
+    },
+    {
+      name: "additionalLinkSections",
+      title: "Additional Link Sections",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "linkSection",
+          fields: [
+            {
+              name: "sectionHeading",
+              title: "Section Heading",
+              type: "string",
+              validation: (Rule: Rule) => Rule.required(),
+            },
+            {
+              name: "sectionContentHeading",
+              title: "Section Content Heading",
+              type: "string",
+              description: "Optional non-clickable heading displayed below the section heading",
+            },
+            {
+              name: "position",
+              title: "Position",
+              type: "string",
+              options: {
+                list: [
+                  { title: "Below Primary Links", value: "below" },
+                  { title: "Right Side (RHS)", value: "right" },
+                ],
+              },
+              initialValue: "below",
+              description: "Choose where to display this section",
+            },
+            {
+              name: "hidden",
+              title: "Hide this section",
+              type: "boolean",
+              description: "Toggle to hide this section",
+              initialValue: false,
+            },
+            {
+              name: "links",
+              title: "Section Links",
+              type: "array",
+              of: [
+                {
+                  type: "reference",
+                  to: [{ type: "menuItem" }],
+                  options: {
+                    filter: "isTopLevel != true",
+                  },
+                },
+              ],
+              // Remove the required validation
+              validation: (Rule: Rule) => Rule,
+              options: {
+                sortable: true,
+              },
+            },
+            {
+              name: "sectionButton",
+              title: "Section Button",
+              type: "object",
+              description: "Add a button for this section (optional)",
+              fields: [
+                {
+                  name: "text",
+                  title: "Button Text",
+                  type: "string",
+                  description: "Leave empty to hide the button",
+                },
+                {
+                  name: "url",
+                  title: "URL",
+                  type: "url",
+                  description: "URL for the button (optional)",
+                },
+                {
+                  name: "hidden",
+                  title: "Hide this button",
+                  type: "boolean",
+                  description: "Toggle to hide this button",
+                  initialValue: false,
+                },
+              ],
+            },
+            {
+              name: "subSections",
+              title: "Sub Sections",
+              type: "array",
+              of: [
+                {
+                  type: "object",
+                  name: "subSection",
+                  fields: [
+                    {
+                      name: "heading",
+                      title: "Sub Section Heading",
+                      type: "string",
+                      description: "Non-clickable heading for this sub-section",
+                      validation: (Rule: Rule) => Rule.required(),
+                    },
+                    {
+                      name: "hidden",
+                      title: "Hide this sub-section",
+                      type: "boolean",
+                      description: "Toggle to hide this sub-section",
+                      initialValue: false,
+                    },
+                    {
+                      name: "url",
+                      title: "URL",
+                      type: "url",
+                      description: "URL for the subsection heading (used when there are no links)",
+                    },
+                    {
+                      name: "links",
+                      title: "Sub Section Links",
+                      type: "array",
+                      of: [
+                        {
+                          type: "reference",
+                          to: [{ type: "menuItem" }],
+                          options: {
+                            filter: "isTopLevel != true",
+                          },
+                        },
+                      ],
+                      description: "Select Child Menu items to include in this sub-section (optional)",
+                      validation: (Rule: Rule) => Rule,
+                      options: {
+                        sortable: true,
+                      },
+                    },
+                  ],
+                },
+              ],
+              description: "Add multiple sub-sections with their own headings within this section",
+              options: {
+                sortable: true,
+              },
+            },
+          ],
+        },
+      ],
+      description:
+        "Add multiple sections of links, each with their own heading. You can add as many sections as needed, and each will be displayed as a separate group in the mega menu.",
     },
     {
       name: "ctaButtonGroups",
@@ -262,13 +494,28 @@ export default {
       buttonGroupsCount: "ctaButtonGroups.length",
       subListsCount: "subLists.length",
       additionalLinksCount: "additionalLinks.length",
+      hasPrimaryButton: "primaryButton",
+      hasCustomContent: "hasCustomContent",
       hidden: "hidden",
     },
     prepare(value) {
-      const { heading, linksCount, buttonGroupsCount, subListsCount, additionalLinksCount, hidden } = value
+      const {
+        heading,
+        linksCount,
+        buttonGroupsCount,
+        subListsCount,
+        additionalLinksCount,
+        hasPrimaryButton,
+        hasCustomContent,
+        hidden,
+      } = value
       return {
         title: `${heading || "Untitled List"}${hidden ? " (Hidden)" : ""}`,
-        subtitle: `${linksCount || 0} links, ${buttonGroupsCount || 0} button groups, ${subListsCount || 0} sub-lists, ${additionalLinksCount || 0} additional links`,
+        subtitle: `${linksCount || 0} links${hasPrimaryButton ? ", Has Primary Button" : ""}${
+          hasCustomContent ? ", Has Custom Content" : ""
+        }, ${buttonGroupsCount || 0} button groups, ${subListsCount || 0} sub-lists, ${
+          additionalLinksCount || 0
+        } additional links`,
       }
     },
   },

@@ -12,8 +12,15 @@ const sampleMenuData = {
       menuLists: [
         {
           heading: "Our Services",
+          contentHeading: "Explore Our Services",
           order: 1,
           hidden: false,
+          hasCustomContent: false,
+          primaryButton: {
+            text: "View All Services",
+            url: "/services",
+            hidden: false,
+          },
           links: [
             {
               _id: "link-1",
@@ -28,6 +35,34 @@ const sampleMenuData = {
               url: "/traineeships",
               order: 2,
               hidden: false,
+            },
+          ],
+          additionalLinkSections: [
+            {
+              sectionHeading: "Popular Services",
+              position: "below",
+              hidden: false,
+              links: [
+                {
+                  _id: "add-link-1",
+                  title: "Career Guidance",
+                  url: "/career-guidance",
+                  order: 1,
+                  hidden: false,
+                },
+                {
+                  _id: "add-link-2",
+                  title: "Skills Assessment",
+                  url: "/skills-assessment",
+                  order: 2,
+                  hidden: false,
+                },
+              ],
+              sectionButton: {
+                text: "View All",
+                url: "/services",
+                hidden: false,
+              },
             },
           ],
           ctaButtons: [
@@ -274,9 +309,17 @@ export async function getMenuData() {
         hidden,
         "menuLists": menuLists[] {
           heading,
+          contentHeading,
           order,
           hidden,
+          hasCustomContent,
+          customContent,
           ctaSectionTitle,
+          "primaryButton": primaryButton {
+            text,
+            url,
+            hidden
+          },
           "links": links[]-> {
             _id,
             title,
@@ -284,6 +327,38 @@ export async function getMenuData() {
             url,
             order,
             hidden
+          },
+          "additionalLinkSections": additionalLinkSections[] {
+            sectionHeading,
+            sectionContentHeading,
+            position,
+            hidden,
+            "links": links[]-> {
+              _id,
+              title,
+              "slug": slug.current,
+              url,
+              order,
+              hidden
+            },
+            "sectionButton": sectionButton {
+              text,
+              url,
+              hidden
+            },
+            "subSections": subSections[] {
+              heading,
+              hidden,
+              url,
+              "links": links[]-> {
+                _id,
+                title,
+                "slug": slug.current,
+                url,
+                order,
+                hidden
+              }
+            }
           },
           "ctaButtons": ctaButtons[] {
             text,
@@ -310,7 +385,9 @@ export async function getMenuData() {
               url,
               order,
               hidden,
-              "image": image.asset->url
+              "image": image.asset->url,
+              imageWidth,
+              imageHeight
             }
           },
           "additionalLinks": additionalLinks[] {
@@ -349,9 +426,17 @@ export async function getMenuData() {
           hidden,
           "menuLists": menuLists[] {
             heading,
+            contentHeading,
             order,
             hidden,
+            hasCustomContent,
+            customContent,
             ctaSectionTitle,
+            "primaryButton": primaryButton {
+              text,
+              url,
+              hidden
+            },
             "links": links[]-> {
               _id,
               title,
@@ -359,6 +444,38 @@ export async function getMenuData() {
               url,
               order,
               hidden
+            },
+            "additionalLinkSections": additionalLinkSections[] {
+              sectionHeading,
+              sectionContentHeading,
+              position,
+              hidden,
+              "links": links[]-> {
+                _id,
+                title,
+                "slug": slug.current,
+                url,
+                order,
+                hidden
+              },
+              "sectionButton": sectionButton {
+                text,
+                url,
+                hidden
+              },
+              "subSections": subSections[] {
+                heading,
+                hidden,
+                url,
+                "links": links[]-> {
+                  _id,
+                  title,
+                  "slug": slug.current,
+                  url,
+                  order,
+                  hidden
+                }
+              }
             },
             "ctaButtons": ctaButtons[] {
               text,
@@ -384,7 +501,10 @@ export async function getMenuData() {
                 "slug": slug.current,
                 url,
                 order,
-                hidden
+                hidden,
+                "image": image.asset->url,
+                imageWidth,
+                imageHeight
               }
             },
             "additionalLinks": additionalLinks[] {

@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { ChevronDown, ChevronRight, ArrowRight } from "lucide-react"
 import { useMenuInteractions } from "./menu-interaction-context"
+import { PortableText } from "@portabletext/react"
 
 type SubLink = {
   _id: string
@@ -14,6 +15,8 @@ type SubLink = {
   order?: number
   hidden?: boolean
   image?: string
+  imageWidth?: number
+  imageHeight?: number
 }
 
 type SubList = {
@@ -54,15 +57,46 @@ type MenuLink = {
   hidden?: boolean
 }
 
+type PrimaryButton = {
+  text: string
+  url?: string // Changed from required to optional
+  hidden?: boolean
+}
+
+type SectionButton = {
+  text: string
+  url?: string
+  hidden?: boolean
+}
+
+// Update the MenuList type to include the new fields
 type MenuList = {
   heading: string
+  contentHeading?: string
   order?: number
   links: MenuLink[]
+  hasCustomContent?: boolean
+  customContent?: any
+  primaryButton?: PrimaryButton
   ctaButtons?: CTAButton[] // Legacy support
   ctaButtonGroups?: CTAButtonGroup[] // New structure
   additionalLinks?: AdditionalLink[]
   hidden?: boolean
   subLists?: SubList[]
+  additionalLinkSections?: {
+    sectionHeading: string
+    position?: string
+    hidden?: boolean
+    links: MenuLink[]
+    sectionButton?: SectionButton
+    sectionContentHeading?: string
+    subSections?: {
+      heading: string
+      hidden?: boolean
+      links: MenuLink[]
+      url?: string // Add url to subsection
+    }[]
+  }[]
 }
 
 type MenuItem = {
@@ -93,9 +127,6 @@ type MegaMenuProps = {
 
 // Threshold for meaningful interaction in milliseconds
 const MEANINGFUL_INTERACTION_THRESHOLD = 2000 // 2 seconds
-
-// Sample info cards data - in a real implementation, this would come from your CMS
-// Remove this hardcoded array
 
 export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
@@ -446,6 +477,50 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     [addInteraction, showNotification],
   )
 
+  // Handle primary button click
+  const handlePrimaryButtonClick = useCallback(
+    (text: string, url: string, parentTitle?: string, listHeading?: string) => {
+      // Format the title with hierarchical information
+      let formattedTitle = `Primary Button: ${text}`
+
+      if (parentTitle && listHeading) {
+        // Format as: "Primary Button: Parent > List Heading > Text"
+        formattedTitle = `Primary Button: ${parentTitle} > ${listHeading} > ${text}`
+      } else if (parentTitle) {
+        // Format as: "Primary Button: Parent > Text"
+        formattedTitle = `Primary Button: ${parentTitle} > ${text}`
+      }
+
+      addInteraction(formattedTitle, url)
+      showNotification(formattedTitle)
+      setActiveMenu(null)
+      setActiveCategory(null)
+    },
+    [addInteraction, showNotification],
+  )
+
+  // Handle section button click
+  const handleSectionButtonClick = useCallback(
+    (text: string, url: string, parentTitle?: string, sectionHeading?: string) => {
+      // Format the title with hierarchical information
+      let formattedTitle = `Section Button: ${text}`
+
+      if (parentTitle && sectionHeading) {
+        // Format as: "Section Button: Parent > Section Heading > Text"
+        formattedTitle = `Section Button: ${parentTitle} > ${sectionHeading} > ${text}`
+      } else if (parentTitle) {
+        // Format as: "Section Button: Parent > Text"
+        formattedTitle = `Section Button: ${parentTitle} > ${text}`
+      }
+
+      addInteraction(formattedTitle, url)
+      showNotification(formattedTitle)
+      setActiveMenu(null)
+      setActiveCategory(null)
+    },
+    [addInteraction, showNotification],
+  )
+
   // Render action buttons - memoized to prevent recreation on every render
   const actionButtons = useMemo(() => {
     if (!otherItems || otherItems.length === 0) return null
@@ -503,7 +578,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             <h4
               style={{
                 fontWeight: "600",
+                marginTop: "0.5rem",
                 marginBottom: "0.75rem",
+                padding: "0.5rem 0",
                 color: "#4b5563",
                 fontSize: "0.85rem",
               }}
@@ -529,7 +606,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                       transition: "background-color 0.2s ease-in-out",
                       textDecoration: "none",
                       fontSize: "0.75rem",
-                      width: "calc(100% - 15px)", // Make buttons 15px less wide
+                      width: "calc(100% - 25px)", // Make buttons 25px less wide (increased from 15px)
                     }}
                     onClick={(e) => {
                       e.preventDefault() // Prevent actual navigation for testing
@@ -566,7 +643,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
           <h4
             style={{
               fontWeight: "600",
+              marginTop: "0.5rem",
               marginBottom: "0.75rem",
+              padding: "0.5rem 0",
               color: "#4b5563",
               fontSize: "0.85rem",
             }}
@@ -592,7 +671,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     transition: "background-color 0.2s ease-in-out",
                     textDecoration: "none",
                     fontSize: "0.75rem",
-                    width: "calc(100% - 15px)", // Make buttons 15px less wide
+                    width: "calc(100% - 25px)", // Make buttons 25px less wide (increased from 15px)
                   }}
                   onClick={(e) => {
                     e.preventDefault() // Prevent actual navigation for testing
@@ -614,6 +693,507 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     }
 
     return null
+  }
+
+  // Function to render additional link sections
+  const renderAdditionalLinkSections = () => {
+    if (
+      !activeCategoryContent ||
+      !activeCategoryContent.additionalLinkSections ||
+      activeCategoryContent.additionalLinkSections.length === 0
+    ) {
+      return null
+    }
+
+    // Filter sections by position
+    const belowSections = activeCategoryContent.additionalLinkSections.filter(
+      (section) => !section.hidden && (!section.position || section.position === "below"),
+    )
+
+    if (belowSections.length === 0) return null
+
+    return (
+      <>
+        {belowSections.map((section, sectionIndex) => (
+          <div key={`section-${sectionIndex}`} style={{ marginBottom: "1.5rem" }}>
+            <h4
+              style={{
+                fontWeight: "bold",
+                marginTop: "0.5rem",
+                marginBottom: "1rem",
+                padding: "0.5rem 0",
+                color: "#003087",
+                fontSize: "1.0rem",
+              }}
+            >
+              {section.sectionHeading}
+            </h4>
+
+            {/* Non-clickable section heading if provided */}
+            {section.sectionContentHeading && (
+              <h5
+                style={{
+                  fontWeight: "600",
+                  marginTop: "0.5rem",
+                  marginBottom: "0.75rem",
+                  padding: "0.5rem 0",
+                  color: "#4b5563",
+                  fontSize: "0.95rem",
+                }}
+              >
+                {section.sectionContentHeading}
+              </h5>
+            )}
+
+            {section.links && section.links.length > 0 && (
+              <ul
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: "0.75rem 2rem",
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                }}
+              >
+                {section.links
+                  .filter((link) => !link.hidden)
+                  .map((link) => (
+                    <li key={link._id}>
+                      <Link
+                        href={link.url || "/"}
+                        style={{
+                          color: "#6b7280",
+                          textDecoration: "none",
+                          fontSize: "0.75rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault() // Prevent actual navigation for testing
+                          handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, section.sectionHeading)
+                        }}
+                        role="menuitem"
+                      >
+                        <span>{link.title}</span>
+                        <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            )}
+
+            {/* Section Button - now optional */}
+            {section.sectionButton && !section.sectionButton.hidden && section.sectionButton.text && (
+              <div style={{ marginTop: "1rem" }}>
+                <Link
+                  href={section.sectionButton.url || "#"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "0.375rem",
+                    fontWeight: "500",
+                    color: "#000000",
+                    backgroundColor: "#ffb612",
+                    transition: "background-color 0.2s ease-in-out",
+                    textDecoration: "none",
+                    fontSize: "0.75rem",
+                    width: "fit-content", // Only as wide as needed
+                    minWidth: "150px", // Minimum width
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault() // Prevent actual navigation for testing
+                    handleSectionButtonClick(
+                      section.sectionButton.text,
+                      section.sectionButton.url || "#",
+                      activeMenuItem?.title,
+                      section.sectionHeading,
+                    )
+                  }}
+                >
+                  <span>{section.sectionButton.text}</span>
+                  <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                </Link>
+              </div>
+            )}
+
+            {/* Additional sub-sections within this section */}
+            {section.subSections && section.subSections.length > 0 && (
+              <div style={{ marginTop: "1.5rem" }}>
+                {section.subSections
+                  .filter((subSection) => !subSection.hidden)
+                  .map((subSection, subSectionIndex) => (
+                    <div key={`sub-section-${subSectionIndex}`} style={{ marginBottom: "1.5rem" }}>
+                      {/* If there are no links and there's a URL, make the heading a link */}
+                      {!subSection.links || subSection.links.length === 0 ? (
+                        <Link
+                          href={subSection.url || "#"}
+                          style={{
+                            color: "#4b5563",
+                            textDecoration: "none",
+                            fontSize: "0.95rem",
+                            fontWeight: "600",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            marginTop: "0.5rem",
+                            marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
+                            padding: "0.25rem 0 0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            handleLinkClick(
+                              subSection.heading,
+                              subSection.url || "#",
+                              activeMenuItem?.title,
+                              section.sectionHeading,
+                            )
+                          }}
+                          role="menuitem"
+                        >
+                          <span>{subSection.heading}</span>
+                          <ChevronRight size={14} style={{ flexShrink: 0 }} />
+                        </Link>
+                      ) : (
+                        <h5
+                          style={{
+                            fontWeight: "600",
+                            marginTop: "0.5rem",
+                            marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
+                            padding: "0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                            color: "#4b5563",
+                            fontSize: "0.95rem",
+                          }}
+                        >
+                          {subSection.heading}
+                        </h5>
+                      )}
+                      {subSection.links && subSection.links.length > 0 && (
+                        <ul
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, 1fr)",
+                            gap: "0.75rem 2rem",
+                            listStyle: "none",
+                            padding: 0,
+                            margin: 0,
+                          }}
+                        >
+                          {subSection.links
+                            .filter((link) => !link.hidden)
+                            .map((link, linkIndex) => (
+                              <li key={`sub-link-${linkIndex}`}>
+                                <Link
+                                  href={link.url || "#"}
+                                  style={{
+                                    color: "#6b7280",
+                                    textDecoration: "none",
+                                    fontSize: "0.75rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleLinkClick(
+                                      link.title,
+                                      link.url || "#",
+                                      activeMenuItem?.title,
+                                      `${section.sectionHeading} > ${subSection.heading}`,
+                                    )
+                                  }}
+                                  role="menuitem"
+                                >
+                                  <span>{link.title}</span>
+                                  <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                </Link>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </>
+    )
+  }
+
+  // Function to render right-side additional link sections
+  const renderRightSideAdditionalLinkSections = () => {
+    if (
+      !activeCategoryContent ||
+      !activeCategoryContent.additionalLinkSections ||
+      activeCategoryContent.additionalLinkSections.length === 0
+    ) {
+      return null
+    }
+
+    // Filter sections by position
+    const rightSections = activeCategoryContent.additionalLinkSections.filter(
+      (section) => !section.hidden && section.position === "right",
+    )
+
+    if (rightSections.length === 0) return null
+
+    // Calculate equal widths for all sections, but make content sections slightly wider than CTA section
+    const sectionCount = rightSections.length
+    const hasCTAButtons =
+      activeCategoryContent?.ctaButtons?.length > 0 || activeCategoryContent?.ctaButtonGroups?.length > 0
+
+    // If there are CTA buttons, they take up space too
+    const totalSections = hasCTAButtons ? sectionCount + 1 : sectionCount
+
+    // Calculate equal percentage width for all sections
+    const widthPercentage = `${Math.floor(100 / totalSections)}%`
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: "1.5rem",
+          marginLeft: "1.5rem",
+          paddingLeft: "1.5rem",
+          borderLeft:
+            activeCategoryContent?.ctaButtons?.length > 0 || activeCategoryContent?.ctaButtonGroups?.length > 0
+              ? "1px solid #e5e7eb"
+              : "none",
+          flexGrow: 1, // Take remaining space
+          justifyContent: "space-between", // Distribute sections evenly
+        }}
+      >
+        {rightSections.map((section, sectionIndex) => (
+          <div
+            key={`right-section-${sectionIndex}`}
+            style={{
+              width: widthPercentage,
+              marginBottom: "1rem",
+            }}
+          >
+            <h4
+              style={{
+                fontWeight: "bold",
+                marginTop: "0.5rem",
+                marginBottom: "1rem",
+                padding: "0.5rem 0",
+                color: "#003087",
+                fontSize: "1.0rem",
+              }}
+            >
+              {section.sectionHeading}
+            </h4>
+
+            {/* Non-clickable section heading if provided */}
+            {section.sectionContentHeading && (
+              <h5
+                style={{
+                  fontWeight: "600",
+                  marginTop: "0.5rem",
+                  marginBottom: "0.75rem",
+                  padding: "0.5rem 0",
+                  color: "#4b5563",
+                  fontSize: "0.95rem",
+                }}
+              >
+                {section.sectionContentHeading}
+              </h5>
+            )}
+
+            {section.links && section.links.length > 0 && (
+              <ul
+                style={{
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.75rem",
+                }}
+              >
+                {section.links
+                  .filter((link) => !link.hidden)
+                  .map((link) => (
+                    <li key={link._id}>
+                      <Link
+                        href={link.url || "#"}
+                        style={{
+                          color: "#6b7280",
+                          textDecoration: "none",
+                          fontSize: "0.75rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.25rem",
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault() // Prevent actual navigation for testing
+                          handleLinkClick(link.title, link.url || "#", activeMenuItem?.title, section.sectionHeading)
+                        }}
+                        role="menuitem"
+                      >
+                        <span>{link.title}</span>
+                        <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            )}
+
+            {/* Section Button - now optional */}
+            {section.sectionButton && !section.sectionButton.hidden && section.sectionButton.text && (
+              <div style={{ marginTop: "1rem" }}>
+                <Link
+                  href={section.sectionButton.url || "#"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "0.375rem",
+                    fontWeight: "500",
+                    color: "#000000",
+                    backgroundColor: "#ffb612",
+                    transition: "background-color 0.2s ease-in-out",
+                    textDecoration: "none",
+                    fontSize: "0.75rem",
+                    width: "fit-content", // Only as wide as needed
+                    minWidth: "150px", // Minimum width
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault() // Prevent actual navigation for testing
+                    handleSectionButtonClick(
+                      section.sectionButton.text,
+                      section.sectionButton.url || "#",
+                      activeMenuItem?.title,
+                      section.sectionHeading,
+                    )
+                  }}
+                >
+                  <span>{section.sectionButton.text}</span>
+                  <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                </Link>
+              </div>
+            )}
+
+            {/* Additional sub-sections within this section */}
+            {section.subSections && section.subSections.length > 0 && (
+              <div style={{ marginTop: "1.5rem" }}>
+                {section.subSections
+                  .filter((subSection) => !subSection.hidden)
+                  .map((subSection, subSectionIndex) => (
+                    <div key={`sub-section-${subSectionIndex}`} style={{ marginBottom: "1.5rem" }}>
+                      {/* If there are no links and there's a URL, make the heading a link */}
+                      {!subSection.links || subSection.links.length === 0 ? (
+                        <Link
+                          href={subSection.url || "#"}
+                          style={{
+                            color: "#4b5563",
+                            textDecoration: "none",
+                            fontSize: "0.95rem",
+                            fontWeight: "600",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            marginTop: "0.5rem",
+                            marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
+                            padding: "0.25rem 0 0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            handleLinkClick(
+                              subSection.heading,
+                              subSection.url || "#",
+                              activeMenuItem?.title,
+                              section.sectionHeading,
+                            )
+                          }}
+                          role="menuitem"
+                        >
+                          <span>{subSection.heading}</span>
+                          <ChevronRight size={14} style={{ flexShrink: 0 }} />
+                        </Link>
+                      ) : (
+                        <h5
+                          style={{
+                            fontWeight: "600",
+                            marginTop: "0.5rem",
+                            marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
+                            padding: "0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                            color: "#4b5563",
+                            fontSize: "0.95rem",
+                          }}
+                        >
+                          {subSection.heading}
+                        </h5>
+                      )}
+                      {subSection.links && subSection.links.length > 0 && (
+                        <ul
+                          style={{
+                            listStyle: "none",
+                            padding: 0,
+                            margin: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.5rem",
+                          }}
+                        >
+                          {subSection.links
+                            .filter((link) => !link.hidden)
+                            .map((link, linkIndex) => (
+                              <li key={`sub-link-${linkIndex}`}>
+                                <Link
+                                  href={link.url || "#"}
+                                  style={{
+                                    color: "#6b7280",
+                                    textDecoration: "none",
+                                    fontSize: "0.75rem",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleLinkClick(
+                                      link.title,
+                                      link.url || "#",
+                                      activeMenuItem?.title,
+                                      `${section.sectionHeading} > ${subSection.heading}`,
+                                    )
+                                  }}
+                                  role="menuitem"
+                                >
+                                  <span>{link.title}</span>
+                                  <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                </Link>
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Function to render custom content
+  const renderCustomContent = () => {
+    if (!activeCategoryContent || !activeCategoryContent.hasCustomContent || !activeCategoryContent.customContent) {
+      return null
+    }
+
+    return (
+      <div style={{ marginBottom: "1.5rem" }}>
+        <PortableText value={activeCategoryContent.customContent} />
+      </div>
+    )
   }
 
   return (
@@ -805,64 +1385,135 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                   }}
                 >
                   {/* Main content area */}
-                  <div style={{ flex: "1 1 auto", maxWidth: "calc(100% - 200px)" }}>
+                  <div
+                    style={{
+                      // Calculate width based on total number of sections for equal distribution
+                      // Reduce width by 10% to make more room for other sections
+                      width: (() => {
+                        // Count the number of right-side sections
+                        const rightSectionCount =
+                          activeCategoryContent?.additionalLinkSections?.filter(
+                            (section) => !section.hidden && section.position === "right",
+                          )?.length || 0
+
+                        // Count total sections (main content + right sections)
+                        const totalSections = rightSectionCount + 1
+
+                        // Return percentage width with 10% reduction
+                        return `${Math.floor((100 / totalSections) * 0.9)}%`
+                      })(),
+                      paddingRight: "1.5rem",
+                    }}
+                  >
                     {activeCategoryContent && (
                       <>
-                        {/* Non-clickable heading */}
+                        {/* Non-clickable heading - now uses contentHeading if available */}
                         <h3
                           style={{
                             fontWeight: "bold",
+                            marginTop: "0.5rem",
                             marginBottom: "1rem",
+                            padding: "0.5rem 0",
                             color: "#003087",
                             fontSize: "1.0rem",
                           }}
                         >
-                          Learn about {activeCategoryContent.heading.toLowerCase()}
+                          {activeCategoryContent.contentHeading ||
+                            `Learn about ${activeCategoryContent.heading.toLowerCase()}`}
                         </h3>
 
+                        {/* Custom Content */}
+                        {renderCustomContent()}
+
                         {/* Links */}
-                        <ul
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(2, 1fr)", // Changed from 3 to 2 columns
-                            gap: "0.75rem 2rem",
-                            listStyle: "none",
-                            padding: 0,
-                            margin: 0,
-                            marginBottom: "1.5rem",
-                          }}
-                        >
-                          {activeCategoryContent.links
-                            .filter((link) => !link.hidden)
-                            .map((link) => (
-                              <li key={link._id}>
-                                <Link
-                                  href={link.url || "/"}
-                                  style={{
-                                    color: "#6b7280",
-                                    textDecoration: "none",
-                                    fontSize: "0.75rem",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.25rem",
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault() // Prevent actual navigation for testing
-                                    handleLinkClick(
-                                      link.title,
-                                      link.url || "/",
-                                      activeMenuItem?.title,
-                                      activeCategoryContent.heading,
-                                    )
-                                  }}
-                                  role="menuitem"
-                                >
-                                  <span>{link.title}</span>
-                                  <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                                </Link>
-                              </li>
-                            ))}
-                        </ul>
+                        {activeCategoryContent.links && activeCategoryContent.links.length > 0 && (
+                          <ul
+                            style={{
+                              display: "grid",
+                              // Change from 2 columns to 1 column when there are RHS additional link sections
+                              gridTemplateColumns: activeCategoryContent?.additionalLinkSections?.some(
+                                (section) => !section.hidden && section.position === "right",
+                              )
+                                ? "1fr" // Single column when RHS sections exist
+                                : "repeat(2, 1fr)", // Otherwise use 2 columns
+                              gap: "0.75rem 2rem",
+                              listStyle: "none",
+                              padding: 0,
+                              margin: 0,
+                              marginBottom: "1.5rem",
+                            }}
+                          >
+                            {activeCategoryContent.links
+                              .filter((link) => !link.hidden)
+                              .map((link) => (
+                                <li key={link._id}>
+                                  <Link
+                                    href={link.url || "/"}
+                                    style={{
+                                      color: "#6b7280",
+                                      textDecoration: "none",
+                                      fontSize: "0.75rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.25rem",
+                                    }}
+                                    onClick={(e) => {
+                                      e.preventDefault() // Prevent actual navigation for testing
+                                      handleLinkClick(
+                                        link.title,
+                                        link.url || "/",
+                                        activeMenuItem?.title,
+                                        activeCategoryContent.heading,
+                                      )
+                                    }}
+                                    role="menuitem"
+                                  >
+                                    <span>{link.title}</span>
+                                    <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                  </Link>
+                                </li>
+                              ))}
+                          </ul>
+                        )}
+
+                        {/* Primary Button - displayed below the links */}
+                        {activeCategoryContent.primaryButton && !activeCategoryContent.primaryButton.hidden && (
+                          <div style={{ marginBottom: "1.5rem" }}>
+                            <Link
+                              href={activeCategoryContent.primaryButton.url || "#"}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "0.5rem 1rem",
+                                borderRadius: "0.375rem",
+                                fontWeight: "500",
+                                color: "#000000",
+                                backgroundColor: "#ffb612",
+                                transition: "background-color 0.2s ease-in-out",
+                                textDecoration: "none",
+                                fontSize: "0.75rem",
+                                width: "fit-content", // Only as wide as needed
+                                minWidth: "150px", // Minimum width
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault() // Prevent actual navigation for testing
+                                handlePrimaryButtonClick(
+                                  activeCategoryContent.primaryButton.text,
+                                  activeCategoryContent.primaryButton.url || "#",
+                                  activeMenuItem?.title,
+                                  activeCategoryContent.heading,
+                                )
+                              }}
+                            >
+                              <span>{activeCategoryContent.primaryButton.text}</span>
+                              <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                            </Link>
+                          </div>
+                        )}
+
+                        {/* Additional Link Sections - new feature */}
+                        {renderAdditionalLinkSections()}
 
                         {/* Information Resources section - using subLists */}
                         {activeCategoryContent.subLists && activeCategoryContent.subLists.length > 0 && (
@@ -874,69 +1525,75 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                   <h4
                                     style={{
                                       fontWeight: "600",
+                                      marginTop: "0.5rem",
                                       marginBottom: "0.75rem",
+                                      padding: "0.5rem 0",
                                       color: "#4b5563",
                                       fontSize: "0.95rem",
                                     }}
                                   >
                                     {subList.heading}
                                   </h4>
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gridTemplateColumns: "repeat(2, 1fr)",
-                                      gap: "1rem",
-                                    }}
-                                  >
-                                    {subList.links
-                                      .filter((link) => !link.hidden)
-                                      .map((link) => (
-                                        <Link
-                                          key={link._id}
-                                          href={link.url || "#"}
-                                          style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "0.75rem",
-                                            padding: "0rem",
-                                            borderRadius: "0.25rem",
-                                            backgroundColor: "#f9fafb",
-                                            textDecoration: "none",
-                                          }}
-                                          onClick={(e) => {
-                                            e.preventDefault() // Prevent actual navigation for testing
-                                            handleLinkClick(
-                                              link.title,
-                                              link.url || "#",
-                                              activeMenuItem?.title,
-                                              subList.heading,
-                                            )
-                                          }}
-                                        >
-                                          {/* Only show image if it exists */}
-                                          {link.image && (
-                                            <div style={{ flexShrink: 0 }}>
-                                              <Image
-                                                src={link.image || "/placeholder.svg"}
-                                                alt={link.title}
-                                                width={72}
-                                                height={56}
-                                                style={{ borderRadius: "0.25rem", objectFit: "cover" }}
-                                              />
-                                            </div>
-                                          )}
-                                          <span
+
+                                  {subList.links && subList.links.length > 0 && (
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "repeat(2, 1fr)",
+                                        gap: "1rem",
+                                      }}
+                                    >
+                                      {subList.links
+                                        .filter((link) => !link.hidden)
+                                        .map((link) => (
+                                          <Link
+                                            key={link._id}
+                                            href={link.url || "#"}
                                             style={{
-                                              fontSize: "0.75rem",
-                                              fontWeight: "500",
-                                              color: "#4b5563",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              gap: "0.75rem",
+                                              padding: "0.5rem",
+                                              borderRadius: "0.25rem",
+                                              backgroundColor: "#f9fafb",
+                                              textDecoration: "none",
+                                              width: "70%", // Make the link 30% less wide
+                                            }}
+                                            onClick={(e) => {
+                                              e.preventDefault() // Prevent actual navigation for testing
+                                              handleLinkClick(
+                                                link.title,
+                                                link.url || "#",
+                                                activeMenuItem?.title,
+                                                subList.heading,
+                                              )
                                             }}
                                           >
-                                            {link.title}
-                                          </span>
-                                        </Link>
-                                      ))}
-                                  </div>
+                                            {/* Only show image if it exists */}
+                                            {link.image && (
+                                              <div style={{ flexShrink: 0 }}>
+                                                <Image
+                                                  src={link.image || "/placeholder.svg"}
+                                                  alt={link.title}
+                                                  width={link.imageWidth || 72}
+                                                  height={link.imageHeight || 56}
+                                                  style={{ borderRadius: "0.25rem", objectFit: "cover" }}
+                                                />
+                                              </div>
+                                            )}
+                                            <span
+                                              style={{
+                                                fontSize: "0.75rem",
+                                                fontWeight: "500",
+                                                color: "#4b5563",
+                                              }}
+                                            >
+                                              {link.title}
+                                            </span>
+                                          </Link>
+                                        ))}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -945,24 +1602,47 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     )}
                   </div>
 
-                  {/* CTA buttons area */}
-                  {(activeCategoryContent?.ctaButtons?.length > 0 ||
-                    activeCategoryContent?.ctaButtonGroups?.length > 0) && (
-                    <div
-                      style={{
-                        width: "165px", // Reduced from 180px to make CTA buttons 15px less wide
-                        flexShrink: 0, // Prevent shrinking
-                        marginLeft: "1.5rem",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "1rem",
-                        paddingLeft: "1.5rem",
-                        borderLeft: "1px solid #e5e7eb",
-                      }}
-                    >
-                      {renderCtaButtonGroups()}
-                    </div>
-                  )}
+                  {/* Right side content area - flexible layout for CTA buttons and right-positioned additional link sections */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexGrow: 1,
+                    }}
+                  >
+                    {/* CTA buttons */}
+                    {(activeCategoryContent?.ctaButtons?.length > 0 ||
+                      activeCategoryContent?.ctaButtonGroups?.length > 0) && (
+                      <div
+                        style={{
+                          width: (() => {
+                            // Count the number of right-side sections
+                            const rightSectionCount =
+                              activeCategoryContent?.additionalLinkSections?.filter(
+                                (section) => !section.hidden && section.position === "right",
+                              )?.length || 0
+
+                            // Count total sections (CTA buttons + right sections)
+                            const totalSections = rightSectionCount + 1
+
+                            // Return percentage width, making CTA section narrower (75% of equal distribution)
+                            return `${Math.floor((100 / totalSections) * 0.75)}%`
+                          })(),
+                          flexShrink: 0, // Prevent shrinking
+                          marginLeft: "1.5rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "1rem",
+                          paddingLeft: "1.5rem",
+                          borderLeft: "1px solid #e5e7eb",
+                        }}
+                      >
+                        {renderCtaButtonGroups()}
+                      </div>
+                    )}
+
+                    {/* Right-side additional link sections */}
+                    {renderRightSideAdditionalLinkSections()}
+                  </div>
                 </div>
               </div>
             </div>

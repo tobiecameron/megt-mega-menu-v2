@@ -56,6 +56,18 @@ export default {
       },
     },
     {
+      name: "imageWidth",
+      title: "Image Width",
+      type: "number",
+      description: "Optional custom width for the image (in pixels). Default is 72px if not specified.",
+    },
+    {
+      name: "imageHeight",
+      title: "Image Height",
+      type: "number",
+      description: "Optional custom height for the image (in pixels). Default is 56px if not specified.",
+    },
+    {
       name: "menuLists",
       title: "Menu Lists",
       type: "array",
@@ -72,12 +84,13 @@ export default {
       order: "order",
       listsCount: "menuLists.length",
       hidden: "hidden",
+      hasImage: "image",
     },
     prepare(value) {
-      const { title, isTopLevel, order, listsCount, hidden } = value
+      const { title, isTopLevel, order, listsCount, hidden, hasImage } = value
       return {
         title: `${order !== undefined ? order : "?"} - ${title || "Untitled"}${hidden ? " (Hidden)" : ""}`,
-        subtitle: `${isTopLevel ? "Top Level Item" : "Child Item"} ${isTopLevel && listsCount ? `(${listsCount} lists)` : ""}`,
+        subtitle: `${isTopLevel ? "Top Level Item" : "Child Item"} ${isTopLevel && listsCount ? `(${listsCount} lists)` : ""}${hasImage ? " [Has Image]" : ""}`,
       }
     },
   },
