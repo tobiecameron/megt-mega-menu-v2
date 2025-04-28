@@ -38,11 +38,21 @@ type CTAButton = {
   group?: string // For legacy support
 }
 
-type CTAButtonGroup = {
+// Update the CTAButtonGroup type to include imageLinks
+type CTAButtonGroupType = {
   heading: string
   buttons: {
     text: string
     url?: string
+    hidden?: boolean
+  }[]
+  imageLinks?: {
+    title: string
+    description?: string
+    url: string
+    image: string
+    imageWidth?: number
+    imageHeight?: number
     hidden?: boolean
   }[]
   hidden?: boolean
@@ -69,8 +79,8 @@ type SectionButton = {
   hidden?: boolean
 }
 
-// Update the MenuList type to include the new fields
-type MenuList = {
+// Update the MenuList type to include imageLinks at the top level
+type MenuListType = {
   heading: string
   contentHeading?: string
   order?: number
@@ -79,10 +89,20 @@ type MenuList = {
   customContent?: any
   primaryButton?: PrimaryButton
   ctaButtons?: CTAButton[] // Legacy support
-  ctaButtonGroups?: CTAButtonGroup[] // New structure
+  ctaButtonGroups?: CTAButtonGroupType[] // New structure
   additionalLinks?: AdditionalLink[]
   hidden?: boolean
   subLists?: SubList[]
+  imageLinks?: {
+    title: string
+    description?: string
+    url: string
+    image: string
+    imageWidth?: number
+    imageHeight?: number
+    group?: string
+    hidden?: boolean
+  }[]
   additionalLinkSections?: {
     sectionHeading: string
     position?: string
@@ -106,7 +126,7 @@ type MenuItem = {
   url?: string
   order?: number
   hidden?: boolean
-  menuLists?: MenuList[]
+  menuLists?: MenuListType[]
 }
 
 type OtherItem = {
@@ -268,8 +288,10 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   useEffect(() => {
     if (!activeMenu) return
 
-    // If neither the dropdown nor the active menu item is being hovered, close the menu
+    // Only close the menu if neither the dropdown nor the active menu item is being hovered
+    // AND the menu wasn't opened by a click
     if (!isHoveringDropdown && !isHoveringActiveItem) {
+      // We'll keep this timer but it will only affect hover-opened menus
       const timer = setTimeout(() => {
         // Find the active menu item to log its title
         const activeItem = items.find((item) => item._id === activeMenu)
@@ -286,8 +308,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             )
           }
         }
-        setActiveMenu(null)
-        setActiveCategory(null)
+        // We won't automatically close the menu here anymore
+        // setActiveMenu(null)
+        // setActiveCategory(null)
       }, 100) // Small delay to prevent flickering during transition between elements
 
       return () => clearTimeout(timer)
@@ -462,6 +485,8 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
 
       addInteraction(formattedTitle, url || "#")
       showNotification(formattedTitle)
+
+      // Always close the menu when a link is clicked
       setActiveMenu(null)
       setActiveCategory(null)
     },
@@ -558,16 +583,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     })
   }, [otherItems, handleActionButtonClick])
 
-  // Function to render CTA button groups
+  // Now, let's update the renderCtaButtonGroups function to include image links
   const renderCtaButtonGroups = () => {
     if (!activeCategoryContent) return null
-
-    // Debug logging
-    console.log("CTA Content:", {
-      ctaButtonGroups: activeCategoryContent.ctaButtonGroups,
-      ctaButtons: activeCategoryContent.ctaButtons,
-      heading: activeCategoryContent.heading,
-    })
 
     // First check if we have the new button groups structure
     if (activeCategoryContent.ctaButtonGroups && activeCategoryContent.ctaButtonGroups.length > 0) {
@@ -603,10 +621,31 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                       fontWeight: "500",
                       color: "#000000",
                       backgroundColor: "#ffb612",
-                      transition: "background-color 0.2s ease-in-out",
+                      transition: "all 0.2s ease-in-out",
                       textDecoration: "none",
                       fontSize: "0.75rem",
-                      width: "calc(100% - 25px)", // Make buttons 25px less wide (increased from 15px)
+                      width: "calc(100% - 25px)", // Make buttons 25px less wide
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#003087"
+                      e.currentTarget.style.color = "#ffffff"
+                      // Add chevron shift effect
+                      const chevron = e.currentTarget.querySelector("svg")
+                      if (chevron) {
+                        chevron.style.transform = "translateX(3px)"
+                        chevron.style.transition = "transform 0.2s ease"
+                        chevron.style.strokeWidth = "3" // Make chevron bold
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "#ffb612"
+                      e.currentTarget.style.color = "#000000"
+                      // Reset chevron position
+                      const chevron = e.currentTarget.querySelector("svg")
+                      if (chevron) {
+                        chevron.style.transform = "translateX(0)"
+                        chevron.style.strokeWidth = "2" // Reset to normal weight
+                      }
                     }}
                     onClick={(e) => {
                       e.preventDefault() // Prevent actual navigation for testing
@@ -623,6 +662,62 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                   </Link>
                 ))}
             </div>
+
+            {/* Render image links if they exist */}
+            {group.imageLinks && group.imageLinks.length > 0 && (
+              <div style={{ marginTop: "1rem" }}>
+                {group.imageLinks
+                  .filter((link) => !link.hidden)
+                  .map((link, linkIndex) => (
+                    <Link
+                      key={`image-link-${linkIndex}`}
+                      href={link.url}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.75rem",
+                        padding: "0.75rem",
+                        marginTop: "0.5rem",
+                        backgroundColor: "#f9fafb",
+                        borderRadius: "0.375rem",
+                        textDecoration: "none",
+                        transition: "all 0.2s ease-in-out",
+                        border: "1px solid #e5e7eb",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f3f4f6"
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f9fafb"
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleLinkClick(link.title, link.url, activeMenuItem?.title, `${group.heading} - Image Link`)
+                      }}
+                    >
+                      <div style={{ flexShrink: 0 }}>
+                        <Image
+                          src={link.image || "/placeholder.svg"}
+                          alt={link.title}
+                          width={link.imageWidth || 60}
+                          height={link.imageHeight || 60}
+                          style={{ borderRadius: "0.25rem", objectFit: "cover" }}
+                        />
+                      </div>
+                      <div>
+                        <h5 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "600", color: "#111827" }}>
+                          {link.title}
+                        </h5>
+                        {link.description && (
+                          <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", color: "#6b7280" }}>
+                            {link.description}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+              </div>
+            )}
           </div>
         ))
     }
@@ -668,10 +763,31 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     fontWeight: "500",
                     color: "#000000",
                     backgroundColor: "#ffb612",
-                    transition: "background-color 0.2s ease-in-out",
+                    transition: "all 0.2s ease-in-out",
                     textDecoration: "none",
                     fontSize: "0.75rem",
-                    width: "calc(100% - 25px)", // Make buttons 25px less wide (increased from 15px)
+                    width: "calc(100% - 25px)", // Make buttons 25px less wide
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#003087"
+                    e.currentTarget.style.color = "#ffffff"
+                    // Add chevron shift effect
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(3px)"
+                      chevron.style.transition = "transform 0.2s ease"
+                      chevron.style.strokeWidth = "3" // Make chevron bold
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#ffb612"
+                    e.currentTarget.style.color = "#000000"
+                    // Reset chevron position
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(0)"
+                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                    }
                   }}
                   onClick={(e) => {
                     e.preventDefault() // Prevent actual navigation for testing
@@ -688,6 +804,62 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 </Link>
               ))}
           </div>
+
+          {/* Render image links for this group if they exist */}
+          {activeCategoryContent.imageLinks && activeCategoryContent.imageLinks.length > 0 && (
+            <div style={{ marginTop: "1rem" }}>
+              {activeCategoryContent.imageLinks
+                .filter((link) => !link.hidden && (link.group || "default") === group)
+                .map((link, linkIndex) => (
+                  <Link
+                    key={`image-link-${linkIndex}`}
+                    href={link.url}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.75rem",
+                      marginTop: "0.5rem",
+                      backgroundColor: "#f9fafb",
+                      borderRadius: "0.375rem",
+                      textDecoration: "none",
+                      transition: "all 0.2s ease-in-out",
+                      border: "1px solid #e5e7eb",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f3f4f6"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f9fafb"
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      handleLinkClick(link.title, link.url, activeMenuItem?.title, `${group} - Image Link`)
+                    }}
+                  >
+                    <div style={{ flexShrink: 0 }}>
+                      <Image
+                        src={link.image || "/placeholder.svg"}
+                        alt={link.title}
+                        width={link.imageWidth || 60}
+                        height={link.imageHeight || 60}
+                        style={{ borderRadius: "0.25rem", objectFit: "cover" }}
+                      />
+                    </div>
+                    <div>
+                      <h5 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "600", color: "#111827" }}>
+                        {link.title}
+                      </h5>
+                      {link.description && (
+                        <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem", color: "#6b7280" }}>
+                          {link.description}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+            </div>
+          )}
         </div>
       ))
     }
@@ -770,6 +942,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                           alignItems: "center",
                           gap: "0.25rem",
                         }}
+                        onMouseEnter={(e) => {
+                          const chevron = e.currentTarget.querySelector("svg")
+                          if (chevron) {
+                            chevron.style.transform = "translateX(3px)"
+                            chevron.style.transition = "transform 0.2s ease"
+                            chevron.style.strokeWidth = "3" // Make chevron bold
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          const chevron = e.currentTarget.querySelector("svg")
+                          if (chevron) {
+                            chevron.style.transform = "translateX(0)"
+                            chevron.style.strokeWidth = "2" // Reset to normal weight
+                          }
+                        }}
                         onClick={(e) => {
                           e.preventDefault() // Prevent actual navigation for testing
                           handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, section.sectionHeading)
@@ -798,11 +985,32 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     fontWeight: "500",
                     color: "#000000",
                     backgroundColor: "#ffb612",
-                    transition: "background-color 0.2s ease-in-out",
+                    transition: "all 0.2s ease-in-out",
                     textDecoration: "none",
                     fontSize: "0.75rem",
                     width: "fit-content", // Only as wide as needed
                     minWidth: "150px", // Minimum width
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#003087"
+                    e.currentTarget.style.color = "#ffffff"
+                    // Add chevron shift effect
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(3px)"
+                      chevron.style.transition = "transform 0.2s ease"
+                      chevron.style.strokeWidth = "3" // Make chevron bold
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#ffb612"
+                    e.currentTarget.style.color = "#000000"
+                    // Reset chevron position
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(0)"
+                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                    }
                   }}
                   onClick={(e) => {
                     e.preventDefault() // Prevent actual navigation for testing
@@ -842,6 +1050,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                             marginTop: "0.5rem",
                             marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
                             padding: "0.25rem 0 0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                          }}
+                          onMouseEnter={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(3px)"
+                              chevron.style.transition = "transform 0.2s ease"
+                              chevron.style.strokeWidth = "3" // Make chevron bold
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(0)"
+                              chevron.style.strokeWidth = "2" // Reset to normal weight
+                            }
                           }}
                           onClick={(e) => {
                             e.preventDefault()
@@ -895,6 +1118,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                     display: "flex",
                                     alignItems: "center",
                                     gap: "0.25rem",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    const chevron = e.currentTarget.querySelector("svg")
+                                    if (chevron) {
+                                      chevron.style.transform = "translateX(3px)"
+                                      chevron.style.transition = "transform 0.2s ease"
+                                      chevron.style.strokeWidth = "3" // Make chevron bold
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    const chevron = e.currentTarget.querySelector("svg")
+                                    if (chevron) {
+                                      chevron.style.transform = "translateX(0)"
+                                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                                    }
                                   }}
                                   onClick={(e) => {
                                     e.preventDefault()
@@ -1029,6 +1267,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                           alignItems: "center",
                           gap: "0.25rem",
                         }}
+                        onMouseEnter={(e) => {
+                          const chevron = e.currentTarget.querySelector("svg")
+                          if (chevron) {
+                            chevron.style.transform = "translateX(3px)"
+                            chevron.style.transition = "transform 0.2s ease"
+                            chevron.style.strokeWidth = "3" // Make chevron bold
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          const chevron = e.currentTarget.querySelector("svg")
+                          if (chevron) {
+                            chevron.style.transform = "translateX(0)"
+                            chevron.style.strokeWidth = "2" // Reset to normal weight
+                          }
+                        }}
                         onClick={(e) => {
                           e.preventDefault() // Prevent actual navigation for testing
                           handleLinkClick(link.title, link.url || "#", activeMenuItem?.title, section.sectionHeading)
@@ -1057,11 +1310,32 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     fontWeight: "500",
                     color: "#000000",
                     backgroundColor: "#ffb612",
-                    transition: "background-color 0.2s ease-in-out",
+                    transition: "all 0.2s ease-in-out",
                     textDecoration: "none",
                     fontSize: "0.75rem",
                     width: "fit-content", // Only as wide as needed
                     minWidth: "150px", // Minimum width
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#003087"
+                    e.currentTarget.style.color = "#ffffff"
+                    // Add chevron shift effect
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(3px)"
+                      chevron.style.transition = "transform 0.2s ease"
+                      chevron.style.strokeWidth = "3" // Make chevron bold
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#ffb612"
+                    e.currentTarget.style.color = "#000000"
+                    // Reset chevron position
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(0)"
+                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                    }
                   }}
                   onClick={(e) => {
                     e.preventDefault() // Prevent actual navigation for testing
@@ -1155,6 +1429,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                     alignItems: "center",
                                     gap: "0.25rem",
                                   }}
+                                  onMouseEnter={(e) => {
+                                    const chevron = e.currentTarget.querySelector("svg")
+                                    if (chevron) {
+                                      chevron.style.transform = "translateX(3px)"
+                                      chevron.style.transition = "transform 0.2s ease"
+                                      chevron.style.strokeWidth = "3" // Make chevron bold
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    const chevron = e.currentTarget.querySelector("svg")
+                                    if (chevron) {
+                                      chevron.style.transform = "translateX(0)"
+                                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                                    }
+                                  }}
                                   onClick={(e) => {
                                     e.preventDefault()
                                     handleLinkClick(
@@ -1234,8 +1523,8 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                     if (isActive) {
                       setIsHoveringActiveItem(true)
                     }
-                    // Open menu on hover if it has children
-                    else if (hasMenuLists) {
+                    // Open menu on hover if it has children and no menu is currently active
+                    else if (hasMenuLists && activeMenu === null) {
                       setActiveMenu(item._id)
                       setAnimationKey((prev) => prev + 1)
                       setIsHoveringActiveItem(true)
@@ -1360,11 +1649,26 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                             textAlign: "left",
                             border: "none",
                             borderRadius: "0.25rem",
-                            background: activeCategory === list.heading ? "#f3f4f6" : "transparent",
+                            background: activeCategory === list.heading ? "#e5e7eb" : "transparent",
                             color: activeCategory === list.heading ? "#003087" : "#4b5563",
                             fontWeight: activeCategory === list.heading ? "600" : "normal",
                             cursor: "pointer",
                             fontSize: "0.75rem",
+                          }}
+                          onMouseEnter={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(3px)"
+                              chevron.style.transition = "transform 0.2s ease"
+                              chevron.style.strokeWidth = "3" // Make chevron bold
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(0)"
+                              chevron.style.strokeWidth = "2" // Reset to normal weight
+                            }
                           }}
                         >
                           <span>{list.heading}</span>
@@ -1457,6 +1761,21 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                       alignItems: "center",
                                       gap: "0.25rem",
                                     }}
+                                    onMouseEnter={(e) => {
+                                      const chevron = e.currentTarget.querySelector("svg")
+                                      if (chevron) {
+                                        chevron.style.transform = "translateX(3px)"
+                                        chevron.style.transition = "transform 0.2s ease"
+                                        chevron.style.strokeWidth = "3" // Make chevron bold
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const chevron = e.currentTarget.querySelector("svg")
+                                      if (chevron) {
+                                        chevron.style.transform = "translateX(0)"
+                                        chevron.style.strokeWidth = "2" // Reset to normal weight
+                                      }
+                                    }}
                                     onClick={(e) => {
                                       e.preventDefault() // Prevent actual navigation for testing
                                       handleLinkClick(
@@ -1490,11 +1809,32 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                 fontWeight: "500",
                                 color: "#000000",
                                 backgroundColor: "#ffb612",
-                                transition: "background-color 0.2s ease-in-out",
+                                transition: "all 0.2s ease-in-out",
                                 textDecoration: "none",
                                 fontSize: "0.75rem",
                                 width: "fit-content", // Only as wide as needed
                                 minWidth: "150px", // Minimum width
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "#003087"
+                                e.currentTarget.style.color = "#ffffff"
+                                // Add chevron shift effect
+                                const chevron = e.currentTarget.querySelector("svg")
+                                if (chevron) {
+                                  chevron.style.transform = "translateX(3px)"
+                                  chevron.style.transition = "transform 0.2s ease"
+                                  chevron.style.strokeWidth = "3" // Make chevron bold
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "#ffb612"
+                                e.currentTarget.style.color = "#000000"
+                                // Reset chevron position
+                                const chevron = e.currentTarget.querySelector("svg")
+                                if (chevron) {
+                                  chevron.style.transform = "translateX(0)"
+                                  chevron.style.strokeWidth = "2" // Reset to normal weight
+                                }
                               }}
                               onClick={(e) => {
                                 e.preventDefault() // Prevent actual navigation for testing
@@ -1539,7 +1879,23 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                     <div
                                       style={{
                                         display: "grid",
-                                        gridTemplateColumns: "repeat(2, 1fr)",
+                                        gridTemplateColumns: (() => {
+                                          // Count the number of main columns (content + right sections + CTA)
+                                          const rightSectionCount =
+                                            activeCategoryContent?.additionalLinkSections?.filter(
+                                              (section) => !section.hidden && section.position === "right",
+                                            )?.length || 0
+
+                                          const hasCTAButtons =
+                                            activeCategoryContent?.ctaButtons?.length > 0 ||
+                                            activeCategoryContent?.ctaButtonGroups?.length > 0
+
+                                          // Calculate total columns (main content + right sections + CTA if present)
+                                          const totalColumns = 1 + rightSectionCount + (hasCTAButtons ? 1 : 0)
+
+                                          // Use 1 column if there are more than 2 total columns
+                                          return totalColumns > 2 ? "1fr" : "repeat(2, 1fr)"
+                                        })(),
                                         gap: "1rem",
                                       }}
                                     >
@@ -1555,9 +1911,24 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                               gap: "0.75rem",
                                               padding: "0.5rem",
                                               borderRadius: "0.25rem",
-                                              backgroundColor: "#f9fafb",
+                                              backgroundColor: "#f0f0f0",
                                               textDecoration: "none",
                                               width: "70%", // Make the link 30% less wide
+                                              transition: "all 0.2s ease-in-out",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.backgroundColor = "#003087"
+                                              const textElement = e.currentTarget.querySelector("span")
+                                              if (textElement) {
+                                                textElement.style.color = "#ffffff"
+                                              }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.backgroundColor = "#f0f0f0"
+                                              const textElement = e.currentTarget.querySelector("span")
+                                              if (textElement) {
+                                                textElement.style.color = "#4b5563"
+                                              }
                                             }}
                                             onClick={(e) => {
                                               e.preventDefault() // Prevent actual navigation for testing

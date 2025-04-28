@@ -125,14 +125,30 @@ function MainContent({
         handleJobBoardClick()
       }}
       onMouseOver={(e) => {
-        e.currentTarget.style.backgroundColor = "#002266" // Darker blue on hover
+        e.currentTarget.style.backgroundColor = "#ffb612" // Change to yellow
+        e.currentTarget.style.color = "#003087" // Change to blue text
+        // Update the arrow color and make it bold
+        const arrow = e.currentTarget.querySelector("svg")
+        if (arrow) {
+          arrow.style.stroke = "#003087" // Change arrow to blue
+          arrow.style.color = "#003087" // Change arrow to blue
+          arrow.style.strokeWidth = "3" // Make arrow bold
+        }
       }}
       onMouseOut={(e) => {
-        e.currentTarget.style.backgroundColor = "#003087" // Back to original color
+        e.currentTarget.style.backgroundColor = "#003087" // Back to blue
+        e.currentTarget.style.color = "#ffffff" // Back to white text
+        // Reset the arrow color and weight
+        const arrow = e.currentTarget.querySelector("svg")
+        if (arrow) {
+          arrow.style.stroke = "#ffb612" // Back to yellow
+          arrow.style.color = "#ffb612" // Back to yellow
+          arrow.style.strokeWidth = "2" // Reset to normal weight
+        }
       }}
     >
       <span>{item.buttonText || "Job Board"}</span>
-      <ArrowRight size={16} color="#ffb612" /> {/* Yellow arrow */}
+      <ArrowRight size={16} color="#ffb612" strokeWidth={2} /> {/* Yellow arrow with default stroke width */}
     </Link>
   )
 

@@ -68,10 +68,12 @@ export function SecondaryNav({ items = [], otherItems = [] }: SecondaryNavProps)
             transition: "background-color 0.2s ease-in-out",
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = "#e6a410"
+            e.currentTarget.style.backgroundColor = "#003087" // Change from #e6a410 to #003087 (dark blue)
+            e.currentTarget.style.color = "#ffffff" // Add white text color
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = "#ffb612"
+            e.currentTarget.style.backgroundColor = "#ffb612" // Back to original yellow
+            e.currentTarget.style.color = "#000000" // Back to original black text
           }}
         >
           {item.title}
@@ -102,6 +104,20 @@ export function SecondaryNav({ items = [], otherItems = [] }: SecondaryNavProps)
               fontSize: "0.805rem", // Changed from 0.92rem to 0.805rem
               textDecoration: "none",
               marginLeft: "0.5rem",
+            }}
+            onMouseEnter={(e) => {
+              // Find the arrow icon
+              const arrow = e.currentTarget.querySelector("svg")
+              if (arrow) {
+                arrow.style.strokeWidth = "3" // Make arrow bold
+              }
+            }}
+            onMouseLeave={(e) => {
+              // Find the arrow icon
+              const arrow = e.currentTarget.querySelector("svg")
+              if (arrow) {
+                arrow.style.strokeWidth = "2" // Reset to normal weight
+              }
             }}
             onClick={(e) => {
               e.preventDefault() // Prevent actual navigation for testing
@@ -160,4 +176,3 @@ export function SecondaryNav({ items = [], otherItems = [] }: SecondaryNavProps)
     </div>
   )
 }
-

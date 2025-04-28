@@ -490,6 +490,21 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                     fontSize: "0.92rem",
                     justifyContent: "space-between", // Space between content and chevron
                   }}
+                  onMouseEnter={(e) => {
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(3px)"
+                      chevron.style.transition = "transform 0.2s ease"
+                      chevron.style.strokeWidth = "3" // Make chevron bold
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    const chevron = e.currentTarget.querySelector("svg")
+                    if (chevron) {
+                      chevron.style.transform = "translateX(0)"
+                      chevron.style.strokeWidth = "2" // Reset to normal weight
+                    }
+                  }}
                   onClick={(e) => {
                     e.preventDefault() // Prevent actual navigation for testing
                     handleFooterInteraction(
@@ -658,6 +673,21 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                                       alignItems: "center",
                                       gap: "0.25rem",
                                     }}
+                                    onMouseEnter={(e) => {
+                                      const chevron = e.currentTarget.querySelector("svg")
+                                      if (chevron) {
+                                        chevron.style.transform = "translateX(3px)"
+                                        chevron.style.transition = "transform 0.2s ease"
+                                        chevron.style.strokeWidth = "3" // Make chevron bold
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      const chevron = e.currentTarget.querySelector("svg")
+                                      if (chevron) {
+                                        chevron.style.transform = "translateX(0)"
+                                        chevron.style.strokeWidth = "2" // Reset to normal weight
+                                      }
+                                    }}
                                     onClick={(e) => {
                                       e.preventDefault() // Prevent actual navigation for testing
                                       handleFooterInteraction(
@@ -725,6 +755,27 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                                 fontWeight: "500",
                                 textDecoration: "none",
                                 whiteSpace: "nowrap",
+                                transition: "all 0.2s ease-in-out", // Add transition
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "#ffffff" // Change to white background
+                                e.currentTarget.style.color = "#003087" // Change to blue text
+                                // Find the Mail icon and change its color
+                                const mailIcon = e.currentTarget.querySelector("svg")
+                                if (mailIcon) {
+                                  mailIcon.style.color = "#003087"
+                                  mailIcon.style.stroke = "#003087"
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "#ffb612" // Back to yellow
+                                e.currentTarget.style.color = "#000000" // Back to black text
+                                // Reset the Mail icon color
+                                const mailIcon = e.currentTarget.querySelector("svg")
+                                if (mailIcon) {
+                                  mailIcon.style.color = "#000000"
+                                  mailIcon.style.stroke = "#000000"
+                                }
                               }}
                               onClick={(e) => {
                                 e.preventDefault() // Prevent actual navigation for testing
@@ -837,6 +888,21 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                                         alignItems: "center",
                                         gap: "0.25rem",
                                       }}
+                                      onMouseEnter={(e) => {
+                                        const chevron = e.currentTarget.querySelector("svg")
+                                        if (chevron) {
+                                          chevron.style.transform = "translateX(3px)"
+                                          chevron.style.transition = "transform 0.2s ease"
+                                          chevron.style.strokeWidth = "3" // Make chevron bold
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        const chevron = e.currentTarget.querySelector("svg")
+                                        if (chevron) {
+                                          chevron.style.transform = "translateX(0)"
+                                          chevron.style.strokeWidth = "2" // Reset to normal weight
+                                        }
+                                      }}
                                       onClick={(e) => {
                                         e.preventDefault() // Prevent actual navigation for testing
                                         handleFooterInteraction(
@@ -905,6 +971,27 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                                 fontWeight: "500",
                                 textDecoration: "none",
                                 whiteSpace: "nowrap",
+                                transition: "all 0.2s ease-in-out", // Add transition
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "#ffffff" // Change to white background
+                                e.currentTarget.style.color = "#003087" // Change to blue text
+                                // Find the Mail icon and change its color
+                                const mailIcon = e.currentTarget.querySelector("svg")
+                                if (mailIcon) {
+                                  mailIcon.style.color = "#003087"
+                                  mailIcon.style.stroke = "#003087"
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "#ffb612" // Back to yellow
+                                e.currentTarget.style.color = "#000000" // Back to black text
+                                // Reset the Mail icon color
+                                const mailIcon = e.currentTarget.querySelector("svg")
+                                if (mailIcon) {
+                                  mailIcon.style.color = "#000000"
+                                  mailIcon.style.stroke = "#000000"
+                                }
                               }}
                               onClick={(e) => {
                                 e.preventDefault() // Prevent actual navigation for testing
@@ -1023,6 +1110,15 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
                   backgroundColor: "#ffb612",
                   color: "#000000",
                   borderRadius: "0.375rem",
+                  transition: "all 0.2s ease-in-out", // Add transition
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#ffffff" // Change to white background
+                  e.currentTarget.style.color = "#003087" // Change to blue text
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#ffb612" // Back to yellow
+                  e.currentTarget.style.color = "#000000" // Back to black text
                 }}
                 onClick={(e) => {
                   e.preventDefault() // Prevent actual navigation for testing
@@ -1038,4 +1134,3 @@ export function Footer({ footerItems, otherItems, columns = [], policyLinks = []
     </footer>
   )
 }
-

@@ -336,17 +336,98 @@ export default {
                 sortable: true, // Enable drag-to-reorder functionality
               },
             },
+            {
+              name: "imageLinks",
+              title: "Image Links",
+              type: "array",
+              of: [
+                {
+                  type: "object",
+                  name: "imageLink",
+                  fields: [
+                    {
+                      name: "title",
+                      title: "Title",
+                      type: "string",
+                      validation: (Rule: Rule) => Rule.required(),
+                    },
+                    {
+                      name: "description",
+                      title: "Description",
+                      type: "string",
+                      description: "Optional short description text",
+                    },
+                    {
+                      name: "url",
+                      title: "URL",
+                      type: "url",
+                      description: "URL for the image link",
+                      validation: (Rule: Rule) => Rule.required(),
+                    },
+                    {
+                      name: "image",
+                      title: "Image",
+                      type: "image",
+                      description: "Image to display with the link",
+                      validation: (Rule: Rule) => Rule.required(),
+                      options: {
+                        hotspot: true,
+                      },
+                    },
+                    {
+                      name: "imageWidth",
+                      title: "Image Width",
+                      type: "number",
+                      description: "Width of the image in pixels (default: 80)",
+                      initialValue: 80,
+                    },
+                    {
+                      name: "imageHeight",
+                      title: "Image Height",
+                      type: "number",
+                      description: "Height of the image in pixels (default: 80)",
+                      initialValue: 80,
+                    },
+                    {
+                      name: "hidden",
+                      title: "Hide this image link",
+                      type: "boolean",
+                      description: "Toggle to hide this image link",
+                      initialValue: false,
+                    },
+                  ],
+                  preview: {
+                    select: {
+                      title: "title",
+                      media: "image",
+                      hidden: "hidden",
+                    },
+                    prepare({ title, media, hidden }) {
+                      return {
+                        title: `${title || "Untitled Image Link"}${hidden ? " (Hidden)" : ""}`,
+                        media,
+                      }
+                    },
+                  },
+                },
+              ],
+              description: "Add image-based links that will appear below the buttons in this group",
+              options: {
+                sortable: true,
+              },
+            },
           ],
           preview: {
             select: {
               heading: "heading",
               buttonCount: "buttons.length",
+              imageLinkCount: "imageLinks.length",
               hidden: "hidden",
             },
-            prepare({ heading, buttonCount, hidden }) {
+            prepare({ heading, buttonCount, imageLinkCount, hidden }) {
               return {
                 title: `${heading || "Untitled Group"}${hidden ? " (Hidden)" : ""}`,
-                subtitle: `${buttonCount || 0} buttons`,
+                subtitle: `${buttonCount || 0} buttons, ${imageLinkCount || 0} image links`,
               }
             },
           },
@@ -484,6 +565,92 @@ export default {
       description: "Add additional links that will appear after all sub-lists",
       options: {
         sortable: true, // Enable drag-to-reorder functionality
+      },
+    },
+    {
+      name: "imageLinks",
+      title: "Image Links",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "imageLink",
+          fields: [
+            {
+              name: "title",
+              title: "Title",
+              type: "string",
+              validation: (Rule: Rule) => Rule.required(),
+            },
+            {
+              name: "description",
+              title: "Description",
+              type: "string",
+              description: "Optional short description text",
+            },
+            {
+              name: "url",
+              title: "URL",
+              type: "url",
+              description: "URL for the image link",
+              validation: (Rule: Rule) => Rule.required(),
+            },
+            {
+              name: "image",
+              title: "Image",
+              type: "image",
+              description: "Image to display with the link",
+              validation: (Rule: Rule) => Rule.required(),
+              options: {
+                hotspot: true,
+              },
+            },
+            {
+              name: "imageWidth",
+              title: "Image Width",
+              type: "number",
+              description: "Width of the image in pixels (default: 80)",
+              initialValue: 80,
+            },
+            {
+              name: "imageHeight",
+              title: "Image Height",
+              type: "number",
+              description: "Height of the image in pixels (default: 80)",
+              initialValue: 80,
+            },
+            {
+              name: "group",
+              title: "Button Group",
+              type: "string",
+              description: "Group name for organizing image links with CTA buttons (leave empty for default group)",
+            },
+            {
+              name: "hidden",
+              title: "Hide this image link",
+              type: "boolean",
+              description: "Toggle to hide this image link",
+              initialValue: false,
+            },
+          ],
+          preview: {
+            select: {
+              title: "title",
+              media: "image",
+              hidden: "hidden",
+            },
+            prepare({ title, media, hidden }) {
+              return {
+                title: `${title || "Untitled Image Link"}${hidden ? " (Hidden)" : ""}`,
+                media,
+              }
+            },
+          },
+        },
+      ],
+      description: "Add image-based links that will appear below the CTA buttons",
+      options: {
+        sortable: true,
       },
     },
   ],

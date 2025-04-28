@@ -328,6 +328,16 @@ export async function getMenuData() {
             order,
             hidden
           },
+          "imageLinks": imageLinks[] {
+            title,
+            description,
+            url,
+            "image": image.asset->url,
+            imageWidth,
+            imageHeight,
+            group,
+            hidden
+          },
           "additionalLinkSections": additionalLinkSections[] {
             sectionHeading,
             sectionContentHeading,
@@ -373,6 +383,15 @@ export async function getMenuData() {
               text,
               url,
               hidden
+            },
+            "imageLinks": imageLinks[] {
+              title,
+              description,
+              url,
+              "image": image.asset->url,
+              imageWidth,
+              imageHeight,
+              hidden
             }
           },
           "subLists": subLists[] {
@@ -417,114 +436,133 @@ export async function getMenuData() {
     if (!data.activeMenu || !data.activeMenu.items || data.activeMenu.items.length === 0) {
       console.warn("No active menu found or active menu has no items. Falling back to all top-level items.")
       const fallbackQuery = `{
-        "items": *[_type == "menuItem" && isTopLevel == true] | order(order asc) {
+  "items": *[_type == "menuItem" && isTopLevel == true] | order(order asc) {
+    _id,
+    title,
+    "slug": slug.current,
+    url,
+    order,
+    hidden,
+    "menuLists": menuLists[] {
+      heading,
+      contentHeading,
+      order,
+      hidden,
+      hasCustomContent,
+      customContent,
+      ctaSectionTitle,
+      "primaryButton": primaryButton {
+        text,
+        url,
+        hidden
+      },
+      "links": links[]-> {
+        _id,
+        title,
+        "slug": slug.current,
+        url,
+        order,
+        hidden
+      },
+      "imageLinks": imageLinks[] {
+        title,
+        description,
+        url,
+        "image": image.asset->url,
+        imageWidth,
+        imageHeight,
+        group,
+        hidden
+      },
+      "additionalLinkSections": additionalLinkSections[] {
+        sectionHeading,
+        sectionContentHeading,
+        position,
+        hidden,
+        "links": links[]-> {
+          _id,
+          title,
+          "slug": slug.current,
+          url,
+          order,
+          hidden
+        },
+        "sectionButton": sectionButton {
+          text,
+          url,
+          hidden
+        },
+        "subSections": subSections[] {
+          heading,
+          hidden,
+          url,
+          "links": links[]-> {
+            _id,
+            title,
+            "slug": slug.current,
+            url,
+            order,
+            hidden
+          }
+        }
+      },
+      "ctaButtons": ctaButtons[] {
+        text,
+        url,
+        group,
+        hidden
+      },
+      "ctaButtonGroups": ctaButtonGroups[] {
+        heading,
+        hidden,
+        "buttons": buttons[] {
+          text,
+          url,
+          hidden
+        },
+        "imageLinks": imageLinks[] {
+          title,
+          description,
+          url,
+          "image": image.asset->url,
+          imageWidth,
+          imageHeight,
+          hidden
+        }
+      },
+      "subLists": subLists[] {
+        heading,
+        hidden,
+        "links": links[]-> {
           _id,
           title,
           "slug": slug.current,
           url,
           order,
           hidden,
-          "menuLists": menuLists[] {
-            heading,
-            contentHeading,
-            order,
-            hidden,
-            hasCustomContent,
-            customContent,
-            ctaSectionTitle,
-            "primaryButton": primaryButton {
-              text,
-              url,
-              hidden
-            },
-            "links": links[]-> {
-              _id,
-              title,
-              "slug": slug.current,
-              url,
-              order,
-              hidden
-            },
-            "additionalLinkSections": additionalLinkSections[] {
-              sectionHeading,
-              sectionContentHeading,
-              position,
-              hidden,
-              "links": links[]-> {
-                _id,
-                title,
-                "slug": slug.current,
-                url,
-                order,
-                hidden
-              },
-              "sectionButton": sectionButton {
-                text,
-                url,
-                hidden
-              },
-              "subSections": subSections[] {
-                heading,
-                hidden,
-                url,
-                "links": links[]-> {
-                  _id,
-                  title,
-                  "slug": slug.current,
-                  url,
-                  order,
-                  hidden
-                }
-              }
-            },
-            "ctaButtons": ctaButtons[] {
-              text,
-              url,
-              group,
-              hidden
-            },
-            "ctaButtonGroups": ctaButtonGroups[] {
-              heading,
-              hidden,
-              "buttons": buttons[] {
-                text,
-                url,
-                hidden
-              }
-            },
-            "subLists": subLists[] {
-              heading,
-              hidden,
-              "links": links[]-> {
-                _id,
-                title,
-                "slug": slug.current,
-                url,
-                order,
-                hidden,
-                "image": image.asset->url,
-                imageWidth,
-                imageHeight
-              }
-            },
-            "additionalLinks": additionalLinks[] {
-              text,
-              url,
-              hidden
-            }
-          }
-        },
-        "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary" || placement == "headerDoubleHeight")] | order(order asc) {
-          _id,
-          title,
-          itemType,
-          buttonText,
-          buttonUrl,
-          placement,
-          order,
-          hidden
+          "image": image.asset->url,
+          imageWidth,
+          imageHeight
         }
-      }`
+      },
+      "additionalLinks": additionalLinks[] {
+        text,
+        url,
+        hidden
+      }
+    }
+  },
+  "otherItems": *[_type == "otherItem" && (placement == "headerMain" || placement == "headerSecondary" || placement == "headerDoubleHeight")] | order(order asc) {
+    _id,
+    title,
+    itemType,
+    buttonText,
+    buttonUrl,
+    placement,
+    order,
+    hidden
+  }
+}`
 
       const fallbackData = await client.fetch(fallbackQuery)
       return fallbackData || sampleMenuData
