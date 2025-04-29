@@ -343,6 +343,7 @@ export async function getMenuData() {
             sectionContentHeading,
             position,
             hidden,
+            displayStyle,
             "links": links[]-> {
               _id,
               title,
@@ -479,6 +480,7 @@ export async function getMenuData() {
         sectionContentHeading,
         position,
         hidden,
+        displayStyle,
         "links": links[]-> {
           _id,
           title,

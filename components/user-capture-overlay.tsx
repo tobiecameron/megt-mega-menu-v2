@@ -31,21 +31,26 @@ export function UserCaptureOverlay({ onUserCaptured }: UserCaptureOverlayProps) 
 
       console.log("Creating sheet with name:", sheetName)
 
-      // Initialize a new session in Google Sheets
-      const response = await fetch("/api/sheets/init-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userName,
-          sessionStartTime: date.toISOString(),
-          sheetName, // Pass the sheet name directly
-        }),
-      })
+      // Only initialize a new session in Google Sheets if environment variables are available
+      if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+        // Initialize a new session in Google Sheets
+        const response = await fetch("/api/sheets/init-session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userName,
+            sessionStartTime: date.toISOString(),
+            sheetName, // Pass the sheet name directly
+          }),
+        })
 
-      if (!response.ok) {
-        throw new Error("Failed to initialize session")
+        if (!response.ok) {
+          console.warn("Failed to initialize Google Sheets session, but continuing anyway")
+        }
+      } else {
+        console.log("Skipping Google Sheets initialization - missing environment variables")
       }
 
       // Store user info in localStorage for persistence
@@ -151,4 +156,3 @@ export function UserCaptureOverlay({ onUserCaptured }: UserCaptureOverlayProps) 
     </div>
   )
 }
-

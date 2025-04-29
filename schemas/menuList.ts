@@ -169,6 +169,19 @@ export default {
               initialValue: false,
             },
             {
+              name: "displayStyle",
+              title: "Display Style",
+              type: "string",
+              options: {
+                list: [
+                  { title: "Default (Text with Chevron)", value: "default" },
+                  { title: "Locations (Gray Buttons)", value: "locations" },
+                ],
+              },
+              initialValue: "default",
+              description: "Choose how to display the links in this section",
+            },
+            {
               name: "links",
               title: "Section Links",
               type: "array",
@@ -242,6 +255,19 @@ export default {
                       title: "URL",
                       type: "url",
                       description: "URL for the subsection heading (used when there are no links)",
+                    },
+                    {
+                      name: "displayStyle",
+                      title: "Display Style",
+                      type: "string",
+                      options: {
+                        list: [
+                          { title: "Default (Text with Chevron)", value: "default" },
+                          { title: "Locations (Gray Buttons)", value: "locations" },
+                        ],
+                      },
+                      initialValue: "default",
+                      description: "Choose how to display the links in this sub-section",
                     },
                     {
                       name: "links",

@@ -115,7 +115,9 @@ type MenuListType = {
       hidden?: boolean
       links: MenuLink[]
       url?: string // Add url to subsection
+      displayStyle?: string // Add displayStyle to subsection
     }[]
+    displayStyle?: string // Add displayStyle to section
   }[]
 }
 
@@ -164,6 +166,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
   const meaningfulInteractionTimerRef = useRef<NodeJS.Timeout | null>(null)
   const menuOpenTimeRef = useRef<number | null>(null)
   const { addInteraction, showNotification } = useMenuInteractions()
+  const isMenuOpenedByClick = useRef<boolean>(false)
 
   // Ensure menuItems exists and is an array
   const items = useMemo(() => menuItems?.filter((item) => !item.hidden) || [], [menuItems])
@@ -179,11 +182,23 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     [activeMenuItem],
   )
 
+  // Check if there's only one menu list
+  const hasSingleMenuList = useMemo(() => activeMenuLists.length === 1, [activeMenuLists])
+
   // Get the active category's content
   const activeCategoryContent = useMemo(() => {
     if (!activeCategory || !activeMenuLists.length) return null
     return activeMenuLists.find((list) => list.heading === activeCategory) || activeMenuLists[0]
   }, [activeCategory, activeMenuLists])
+
+  // Check if there are CTA buttons
+  const hasCTAButtons = useMemo(() => {
+    if (!activeCategoryContent) return false
+    return (
+      (activeCategoryContent.ctaButtons && activeCategoryContent.ctaButtons.length > 0) ||
+      (activeCategoryContent.ctaButtonGroups && activeCategoryContent.ctaButtonGroups.length > 0)
+    )
+  }, [activeCategoryContent])
 
   // Calculate menu dimensions
   const menuDimensions = useMemo(() => {
@@ -258,15 +273,18 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
         clearTimeout(meaningfulInteractionTimerRef.current)
       }
 
-      // Set a new timer for meaningful interaction
-      meaningfulInteractionTimerRef.current = setTimeout(() => {
-        // Find the active menu item
-        const activeItem = items.find((item) => item._id === activeMenu)
-        if (activeItem) {
-          // Log the interaction as meaningful after threshold is reached
-          addInteraction(`${activeItem.title} (meaningful open)`, `#${activeItem._id}`)
-        }
-      }, MEANINGFUL_INTERACTION_THRESHOLD)
+      // Only set a new timer for meaningful interaction if the menu wasn't opened by a click
+      // We can check this by looking at the isHoveringActiveItem state
+      if (isHoveringActiveItem && !isMenuOpenedByClick.current) {
+        meaningfulInteractionTimerRef.current = setTimeout(() => {
+          // Find the active menu item
+          const activeItem = items.find((item) => item._id === activeMenu)
+          if (activeItem) {
+            // Log the interaction as meaningful after threshold is reached
+            addInteraction(`${activeItem.title} (meaningful open)`, `#${activeItem._id}`)
+          }
+        }, MEANINGFUL_INTERACTION_THRESHOLD)
+      }
     } else {
       // Menu closed, clear the timer
       if (meaningfulInteractionTimerRef.current) {
@@ -282,7 +300,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
         clearTimeout(meaningfulInteractionTimerRef.current)
       }
     }
-  }, [activeMenu, items, addInteraction])
+  }, [activeMenu, items, addInteraction, isHoveringActiveItem])
 
   // Effect to handle menu closing based on hover states
   useEffect(() => {
@@ -366,6 +384,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
           }
           setActiveMenu(null)
           setActiveCategory(null)
+          isMenuOpenedByClick.current = false
         } else {
           // If we're switching between menus, close the current one first
           if (activeMenu !== null) {
@@ -391,6 +410,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             setTimeout(() => {
               setAnimationKey((prev) => prev + 1) // Increment key to force animation reset
               setActiveMenu(id)
+              isMenuOpenedByClick.current = true
               // Set the first category as active by default
               if (items.find((item) => item._id === id)?.menuLists?.length) {
                 const firstCategory = items.find((item) => item._id === id)?.menuLists?.[0]?.heading
@@ -401,6 +421,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
             // Just opening a new menu
             setAnimationKey((prev) => prev + 1) // Increment key to force animation reset
             setActiveMenu(id)
+            isMenuOpenedByClick.current = true
             // Set the first category as active by default
             if (items.find((item) => item._id === id)?.menuLists?.length) {
               const firstCategory = items.find((item) => item._id === id)?.menuLists?.[0]?.heading
@@ -884,6 +905,19 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
 
     if (belowSections.length === 0) return null
 
+    // Debug log for subsections display style
+    console.log(
+      "Below sections with subsections:",
+      belowSections.map((section) => ({
+        sectionHeading: section.sectionHeading,
+        displayStyle: section.displayStyle,
+        subSections: section.subSections?.map((sub) => ({
+          heading: sub.heading,
+          displayStyle: sub.displayStyle,
+        })),
+      })),
+    )
+
     return (
       <>
         {belowSections.map((section, sectionIndex) => (
@@ -893,9 +927,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 fontWeight: "bold",
                 marginTop: "0.5rem",
                 marginBottom: "1rem",
-                padding: "0.5rem 0",
+                padding: "0.25rem 0", // Reduced from 0.5rem
                 color: "#003087",
-                fontSize: "1.0rem",
+                fontSize: "0.9rem", // Reduced from 1.0rem
               }}
             >
               {section.sectionHeading}
@@ -932,40 +966,72 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                   .filter((link) => !link.hidden)
                   .map((link) => (
                     <li key={link._id}>
-                      <Link
-                        href={link.url || "/"}
-                        style={{
-                          color: "#6b7280",
-                          textDecoration: "none",
-                          fontSize: "0.75rem",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                        }}
-                        onMouseEnter={(e) => {
-                          const chevron = e.currentTarget.querySelector("svg")
-                          if (chevron) {
-                            chevron.style.transform = "translateX(3px)"
-                            chevron.style.transition = "transform 0.2s ease"
-                            chevron.style.strokeWidth = "3" // Make chevron bold
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          const chevron = e.currentTarget.querySelector("svg")
-                          if (chevron) {
-                            chevron.style.transform = "translateX(0)"
-                            chevron.style.strokeWidth = "2" // Reset to normal weight
-                          }
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault() // Prevent actual navigation for testing
-                          handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, section.sectionHeading)
-                        }}
-                        role="menuitem"
-                      >
-                        <span>{link.title}</span>
-                        <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                      </Link>
+                      {section.displayStyle === "locations" ? (
+                        <Link
+                          href={link.url || "/"}
+                          style={{
+                            display: "block",
+                            padding: "0.75rem 1rem",
+                            backgroundColor: "#f0f0f0",
+                            borderRadius: "0.375rem",
+                            color: "#4b5563",
+                            textDecoration: "none",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                            transition: "background-color 0.2s ease-in-out",
+                            width: "100%", // Updated to 100%
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#e5e7eb"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f0f0f0"
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault() // Prevent actual navigation for testing
+                            handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, section.sectionHeading)
+                          }}
+                          role="menuitem"
+                        >
+                          {link.title}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={link.url || "/"}
+                          style={{
+                            color: "#6b7280",
+                            textDecoration: "none",
+                            fontSize: "0.75rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            width: "100%", // Updated to 100%
+                          }}
+                          onMouseEnter={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(3px)"
+                              chevron.style.transition = "transform 0.2s ease"
+                              chevron.style.strokeWidth = "3" // Make chevron bold
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(0)"
+                              chevron.style.strokeWidth = "2" // Reset to normal weight
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault() // Prevent actual navigation for testing
+                            handleLinkClick(link.title, link.url || "/", activeMenuItem?.title, section.sectionHeading)
+                          }}
+                          role="menuitem"
+                        >
+                          <span>{link.title}</span>
+                          <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                        </Link>
+                      )}
                     </li>
                   ))}
               </ul>
@@ -1050,6 +1116,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                             marginTop: "0.5rem",
                             marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
                             padding: "0.25rem 0 0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                            width: "100%", // Updated to 100%
                           }}
                           onMouseEnter={(e) => {
                             const chevron = e.currentTarget.querySelector("svg")
@@ -1097,12 +1164,12 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                       {subSection.links && subSection.links.length > 0 && (
                         <ul
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(2, 1fr)",
-                            gap: "0.75rem 2rem",
                             listStyle: "none",
                             padding: 0,
                             margin: 0,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.5rem",
                           }}
                         >
                           {subSection.links
@@ -1112,27 +1179,25 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                 <Link
                                   href={link.url || "#"}
                                   style={{
-                                    color: "#6b7280",
+                                    display: "block",
+                                    padding: "0.5rem",
+                                    gap: "0.75rem",
+                                    backgroundColor: "#f0f0f0",
+                                    borderRadius: "0.25rem",
+                                    color: "#4b5563",
                                     textDecoration: "none",
                                     fontSize: "0.75rem",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.25rem",
+                                    fontWeight: "500",
+                                    transition: "all 0.2s ease-in-out",
+                                    width: "100%", // Updated to 100%
                                   }}
                                   onMouseEnter={(e) => {
-                                    const chevron = e.currentTarget.querySelector("svg")
-                                    if (chevron) {
-                                      chevron.style.transform = "translateX(3px)"
-                                      chevron.style.transition = "transform 0.2s ease"
-                                      chevron.style.strokeWidth = "3" // Make chevron bold
-                                    }
+                                    e.currentTarget.style.backgroundColor = "#003087"
+                                    e.currentTarget.style.color = "#ffffff"
                                   }}
                                   onMouseLeave={(e) => {
-                                    const chevron = e.currentTarget.querySelector("svg")
-                                    if (chevron) {
-                                      chevron.style.transform = "translateX(0)"
-                                      chevron.style.strokeWidth = "2" // Reset to normal weight
-                                    }
+                                    e.currentTarget.style.backgroundColor = "#f0f0f0"
+                                    e.currentTarget.style.color = "#4b5563"
                                   }}
                                   onClick={(e) => {
                                     e.preventDefault()
@@ -1145,8 +1210,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                   }}
                                   role="menuitem"
                                 >
-                                  <span>{link.title}</span>
-                                  <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                  {link.title}
                                 </Link>
                               </li>
                             ))}
@@ -1195,12 +1259,8 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
         style={{
           display: "flex",
           gap: "1.5rem",
-          marginLeft: "1.5rem",
           paddingLeft: "1.5rem",
-          borderLeft:
-            activeCategoryContent?.ctaButtons?.length > 0 || activeCategoryContent?.ctaButtonGroups?.length > 0
-              ? "1px solid #e5e7eb"
-              : "none",
+          borderLeft: !hasCTAButtons ? "1px solid #e5e7eb" : "none", // Only add border if no CTA buttons
           flexGrow: 1, // Take remaining space
           justifyContent: "space-between", // Distribute sections evenly
         }}
@@ -1218,9 +1278,9 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 fontWeight: "bold",
                 marginTop: "0.5rem",
                 marginBottom: "1rem",
-                padding: "0.5rem 0",
+                padding: "0.25rem 0", // Reduced from 0.5rem
                 color: "#003087",
-                fontSize: "1.0rem",
+                fontSize: "0.9rem", // Reduced from 1.0rem
               }}
             >
               {section.sectionHeading}
@@ -1257,40 +1317,72 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                   .filter((link) => !link.hidden)
                   .map((link) => (
                     <li key={link._id}>
-                      <Link
-                        href={link.url || "#"}
-                        style={{
-                          color: "#6b7280",
-                          textDecoration: "none",
-                          fontSize: "0.75rem",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.25rem",
-                        }}
-                        onMouseEnter={(e) => {
-                          const chevron = e.currentTarget.querySelector("svg")
-                          if (chevron) {
-                            chevron.style.transform = "translateX(3px)"
-                            chevron.style.transition = "transform 0.2s ease"
-                            chevron.style.strokeWidth = "3" // Make chevron bold
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          const chevron = e.currentTarget.querySelector("svg")
-                          if (chevron) {
-                            chevron.style.transform = "translateX(0)"
-                            chevron.style.strokeWidth = "2" // Reset to normal weight
-                          }
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault() // Prevent actual navigation for testing
-                          handleLinkClick(link.title, link.url || "#", activeMenuItem?.title, section.sectionHeading)
-                        }}
-                        role="menuitem"
-                      >
-                        <span>{link.title}</span>
-                        <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                      </Link>
+                      {section.displayStyle === "locations" ? (
+                        <Link
+                          href={link.url || "#"}
+                          style={{
+                            display: "block",
+                            padding: "0.75rem 1rem",
+                            backgroundColor: "#f0f0f0",
+                            borderRadius: "0.375rem",
+                            color: "#4b5563",
+                            textDecoration: "none",
+                            fontSize: "0.75rem",
+                            fontWeight: "500",
+                            transition: "background-color 0.2s ease-in-out",
+                            width: "100%", // Updated to 100%
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = "#e5e7eb"
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "#f0f0f0"
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault() // Prevent actual navigation for testing
+                            handleLinkClick(link.title, link.url || "#", activeMenuItem?.title, section.sectionHeading)
+                          }}
+                          role="menuitem"
+                        >
+                          {link.title}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={link.url || "#"}
+                          style={{
+                            color: "#6b7280",
+                            textDecoration: "none",
+                            fontSize: "0.75rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            width: "100%", // Updated to 100%
+                          }}
+                          onMouseEnter={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(3px)"
+                              chevron.style.transition = "transform 0.2s ease"
+                              chevron.style.strokeWidth = "3" // Make chevron bold
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            const chevron = e.currentTarget.querySelector("svg")
+                            if (chevron) {
+                              chevron.style.transform = "translateX(0)"
+                              chevron.style.strokeWidth = "2" // Reset to normal weight
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault() // Prevent actual navigation for testing
+                            handleLinkClick(link.title, link.url || "#", activeMenuItem?.title, section.sectionHeading)
+                          }}
+                          role="menuitem"
+                        >
+                          <span>{link.title}</span>
+                          <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                        </Link>
+                      )}
                     </li>
                   ))}
               </ul>
@@ -1375,6 +1467,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                             marginTop: "0.5rem",
                             marginBottom: "0.375rem", // Reduced from 0.75rem to 0.375rem (half)
                             padding: "0.25rem 0 0.25rem 0", // Reduced from 0.5rem to 0.25rem (half)
+                            width: "100%", // Updated to 100%
                           }}
                           onClick={(e) => {
                             e.preventDefault()
@@ -1422,27 +1515,25 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                 <Link
                                   href={link.url || "#"}
                                   style={{
-                                    color: "#6b7280",
+                                    display: "block",
+                                    padding: "0.5rem",
+                                    gap: "0.75rem",
+                                    backgroundColor: "#f0f0f0",
+                                    borderRadius: "0.25rem",
+                                    color: "#4b5563",
                                     textDecoration: "none",
                                     fontSize: "0.75rem",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "0.25rem",
+                                    fontWeight: "500",
+                                    transition: "all 0.2s ease-in-out",
+                                    width: "100%", // Updated to 100%
                                   }}
                                   onMouseEnter={(e) => {
-                                    const chevron = e.currentTarget.querySelector("svg")
-                                    if (chevron) {
-                                      chevron.style.transform = "translateX(3px)"
-                                      chevron.style.transition = "transform 0.2s ease"
-                                      chevron.style.strokeWidth = "3" // Make chevron bold
-                                    }
+                                    e.currentTarget.style.backgroundColor = "#003087"
+                                    e.currentTarget.style.color = "#ffffff"
                                   }}
                                   onMouseLeave={(e) => {
-                                    const chevron = e.currentTarget.querySelector("svg")
-                                    if (chevron) {
-                                      chevron.style.transform = "translateX(0)"
-                                      chevron.style.strokeWidth = "2" // Reset to normal weight
-                                    }
+                                    e.currentTarget.style.backgroundColor = "#f0f0f0"
+                                    e.currentTarget.style.color = "#4b5563"
                                   }}
                                   onClick={(e) => {
                                     e.preventDefault()
@@ -1455,8 +1546,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                                   }}
                                   role="menuitem"
                                 >
-                                  <span>{link.title}</span>
-                                  <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                  {link.title}
                                 </Link>
                               </li>
                             ))}
@@ -1481,6 +1571,35 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
     return (
       <div style={{ marginBottom: "1.5rem" }}>
         <PortableText value={activeCategoryContent.customContent} />
+      </div>
+    )
+  }
+
+  // Function to render CTA section
+  const renderCTASection = () => {
+    if (!activeCategoryContent) return null
+
+    // Check if there are CTA buttons in the active category
+    const hasCTAButtonsInCategory =
+      (activeCategoryContent.ctaButtons && activeCategoryContent.ctaButtons.length > 0) ||
+      (activeCategoryContent.ctaButtonGroups && activeCategoryContent.ctaButtonGroups.length > 0)
+
+    if (!hasCTAButtonsInCategory) return null
+
+    return (
+      <div
+        style={{
+          width: "250px", // Fixed width for CTA section
+          flexShrink: 0, // Prevent shrinking
+          marginLeft: "1.5rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          paddingLeft: "1.5rem",
+          borderLeft: "1px solid #e5e7eb",
+        }}
+      >
+        {renderCtaButtonGroups()}
       </div>
     )
   }
@@ -1528,6 +1647,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                       setActiveMenu(item._id)
                       setAnimationKey((prev) => prev + 1)
                       setIsHoveringActiveItem(true)
+                      isMenuOpenedByClick.current = false
 
                       // Set the first category as active by default
                       if (menuLists.length > 0) {
@@ -1614,406 +1734,364 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
                 }}
               />
 
-              {/* Two-panel layout */}
+              {/* Two-panel layout - conditionally render sidebar based on menu list count */}
               <div
                 style={{
                   display: "flex",
                   width: "100%",
                 }}
               >
-                {/* Left panel - Category links */}
-                <div
-                  style={{
-                    width: "220px",
-                    borderRight: "1px solid #e5e7eb",
-                    paddingRight: "1rem",
-                  }}
-                >
-                  <ul
+                {/* Left panel - Category links - Only show when there's more than one menu list */}
+                {!hasSingleMenuList && (
+                  <div
                     style={{
-                      listStyle: "none",
-                      padding: 0,
-                      margin: 0,
+                      width: "220px",
+                      borderRight: "1px solid #e5e7eb",
+                      paddingRight: "1rem",
                     }}
                   >
-                    {activeMenuLists.map((list) => (
-                      <li key={list.heading} style={{ marginBottom: "0.5rem" }}>
-                        <button
-                          onClick={() => handleCategoryClick(list.heading)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            width: "100%",
-                            padding: "0.5rem",
-                            textAlign: "left",
-                            border: "none",
-                            borderRadius: "0.25rem",
-                            background: activeCategory === list.heading ? "#e5e7eb" : "transparent",
-                            color: activeCategory === list.heading ? "#003087" : "#4b5563",
-                            fontWeight: activeCategory === list.heading ? "600" : "normal",
-                            cursor: "pointer",
-                            fontSize: "0.75rem",
-                          }}
-                          onMouseEnter={(e) => {
-                            const chevron = e.currentTarget.querySelector("svg")
-                            if (chevron) {
-                              chevron.style.transform = "translateX(3px)"
-                              chevron.style.transition = "transform 0.2s ease"
-                              chevron.style.strokeWidth = "3" // Make chevron bold
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            const chevron = e.currentTarget.querySelector("svg")
-                            if (chevron) {
-                              chevron.style.transform = "translateX(0)"
-                              chevron.style.strokeWidth = "2" // Reset to normal weight
-                            }
-                          }}
-                        >
-                          <span>{list.heading}</span>
-                          <ChevronRight size={16} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                    <ul
+                      style={{
+                        listStyle: "none",
+                        padding: 0,
+                        margin: 0,
+                      }}
+                    >
+                      {activeMenuLists.map((list) => (
+                        <li key={list.heading} style={{ marginBottom: "0.5rem" }}>
+                          <button
+                            onClick={() => handleCategoryClick(list.heading)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              width: "100%",
+                              padding: "0.5rem",
+                              textAlign: "left",
+                              border: "none",
+                              borderRadius: "0.25rem",
+                              background: activeCategory === list.heading ? "#e5e7eb" : "transparent",
+                              color: activeCategory === list.heading ? "#003087" : "#4b5563",
+                              fontWeight: activeCategory === list.heading ? "600" : "normal",
+                              cursor: "pointer",
+                              fontSize: "0.75rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              const chevron = e.currentTarget.querySelector("svg")
+                              if (chevron) {
+                                chevron.style.transform = "translateX(3px)"
+                                chevron.style.transition = "transform 0.2s ease"
+                                chevron.style.strokeWidth = "3" // Make chevron bold
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              const chevron = e.currentTarget.querySelector("svg")
+                              if (chevron) {
+                                chevron.style.transform = "translateX(0)"
+                                chevron.style.strokeWidth = "2" // Reset to normal weight
+                              }
+                            }}
+                          >
+                            <span>{list.heading}</span>
+                            <ChevronRight size={16} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-                {/* Right panel - Content area */}
+                {/* Content area - Main content + Right side sections */}
                 <div
                   style={{
                     flex: 1,
-                    paddingLeft: "1.5rem",
+                    paddingLeft: hasSingleMenuList ? "0" : "1.5rem", // No left padding when sidebar is hidden
                     paddingRight: "1rem", // Add right padding
                     display: "flex",
                   }}
                 >
-                  {/* Main content area */}
+                  {/* Main content area with right-side additional link sections */}
                   <div
                     style={{
-                      // Calculate width based on total number of sections for equal distribution
-                      // Reduce width by 10% to make more room for other sections
-                      width: (() => {
-                        // Count the number of right-side sections
-                        const rightSectionCount =
-                          activeCategoryContent?.additionalLinkSections?.filter(
-                            (section) => !section.hidden && section.position === "right",
-                          )?.length || 0
-
-                        // Count total sections (main content + right sections)
-                        const totalSections = rightSectionCount + 1
-
-                        // Return percentage width with 10% reduction
-                        return `${Math.floor((100 / totalSections) * 0.9)}%`
-                      })(),
-                      paddingRight: "1.5rem",
+                      width: hasCTAButtons ? "calc(100% - 250px)" : "100%", // Adjust width based on CTA presence
+                      display: "flex", // Use flex to arrange main content and right sections
                     }}
                   >
-                    {activeCategoryContent && (
-                      <>
-                        {/* Non-clickable heading - now uses contentHeading if available */}
-                        <h3
-                          style={{
-                            fontWeight: "bold",
-                            marginTop: "0.5rem",
-                            marginBottom: "1rem",
-                            padding: "0.5rem 0",
-                            color: "#003087",
-                            fontSize: "1.0rem",
-                          }}
-                        >
-                          {activeCategoryContent.contentHeading ||
-                            `Learn about ${activeCategoryContent.heading.toLowerCase()}`}
-                        </h3>
-
-                        {/* Custom Content */}
-                        {renderCustomContent()}
-
-                        {/* Links */}
-                        {activeCategoryContent.links && activeCategoryContent.links.length > 0 && (
-                          <ul
+                    {/* Main content */}
+                    <div
+                      style={{
+                        flex: "1 1 auto",
+                        maxWidth: hasSingleMenuList && !hasCTAButtons ? "600px" : "none", // Limit width to 600px when there's only one menu list and no CTA
+                        paddingRight: "1rem", // Add padding
+                      }}
+                    >
+                      {activeCategoryContent && (
+                        <>
+                          {/* Non-clickable heading - now uses contentHeading if available */}
+                          <h3
                             style={{
-                              display: "grid",
-                              // Change from 2 columns to 1 column when there are RHS additional link sections
-                              gridTemplateColumns: activeCategoryContent?.additionalLinkSections?.some(
-                                (section) => !section.hidden && section.position === "right",
-                              )
-                                ? "1fr" // Single column when RHS sections exist
-                                : "repeat(2, 1fr)", // Otherwise use 2 columns
-                              gap: "0.75rem 2rem",
-                              listStyle: "none",
-                              padding: 0,
-                              margin: 0,
-                              marginBottom: "1.5rem",
+                              fontWeight: "bold",
+                              marginTop: "0.5rem",
+                              marginBottom: "1rem",
+                              padding: "0.25rem 0", // Reduced from 0.5rem
+                              color: "#003087",
+                              fontSize: "0.9rem", // Reduced from 1.0rem
                             }}
                           >
-                            {activeCategoryContent.links
-                              .filter((link) => !link.hidden)
-                              .map((link) => (
-                                <li key={link._id}>
-                                  <Link
-                                    href={link.url || "/"}
-                                    style={{
-                                      color: "#6b7280",
-                                      textDecoration: "none",
-                                      fontSize: "0.75rem",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "0.25rem",
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      const chevron = e.currentTarget.querySelector("svg")
-                                      if (chevron) {
-                                        chevron.style.transform = "translateX(3px)"
-                                        chevron.style.transition = "transform 0.2s ease"
-                                        chevron.style.strokeWidth = "3" // Make chevron bold
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      const chevron = e.currentTarget.querySelector("svg")
-                                      if (chevron) {
-                                        chevron.style.transform = "translateX(0)"
-                                        chevron.style.strokeWidth = "2" // Reset to normal weight
-                                      }
-                                    }}
-                                    onClick={(e) => {
-                                      e.preventDefault() // Prevent actual navigation for testing
-                                      handleLinkClick(
-                                        link.title,
-                                        link.url || "/",
-                                        activeMenuItem?.title,
-                                        activeCategoryContent.heading,
-                                      )
-                                    }}
-                                    role="menuitem"
-                                  >
-                                    <span>{link.title}</span>
-                                    <ChevronRight size={12} style={{ flexShrink: 0 }} />
-                                  </Link>
-                                </li>
-                              ))}
-                          </ul>
-                        )}
+                            {activeCategoryContent.contentHeading ||
+                              `Learn about ${activeCategoryContent.heading.toLowerCase()}`}
+                          </h3>
 
-                        {/* Primary Button - displayed below the links */}
-                        {activeCategoryContent.primaryButton && !activeCategoryContent.primaryButton.hidden && (
-                          <div style={{ marginBottom: "1.5rem" }}>
-                            <Link
-                              href={activeCategoryContent.primaryButton.url || "#"}
+                          {/* Custom Content */}
+                          {renderCustomContent()}
+
+                          {/* Links */}
+                          {activeCategoryContent.links && activeCategoryContent.links.length > 0 && (
+                            <ul
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "0.5rem 1rem",
-                                borderRadius: "0.375rem",
-                                fontWeight: "500",
-                                color: "#000000",
-                                backgroundColor: "#ffb612",
-                                transition: "all 0.2s ease-in-out",
-                                textDecoration: "none",
-                                fontSize: "0.75rem",
-                                width: "fit-content", // Only as wide as needed
-                                minWidth: "150px", // Minimum width
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = "#003087"
-                                e.currentTarget.style.color = "#ffffff"
-                                // Add chevron shift effect
-                                const chevron = e.currentTarget.querySelector("svg")
-                                if (chevron) {
-                                  chevron.style.transform = "translateX(3px)"
-                                  chevron.style.transition = "transform 0.2s ease"
-                                  chevron.style.strokeWidth = "3" // Make chevron bold
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = "#ffb612"
-                                e.currentTarget.style.color = "#000000"
-                                // Reset chevron position
-                                const chevron = e.currentTarget.querySelector("svg")
-                                if (chevron) {
-                                  chevron.style.transform = "translateX(0)"
-                                  chevron.style.strokeWidth = "2" // Reset to normal weight
-                                }
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault() // Prevent actual navigation for testing
-                                handlePrimaryButtonClick(
-                                  activeCategoryContent.primaryButton.text,
-                                  activeCategoryContent.primaryButton.url || "#",
-                                  activeMenuItem?.title,
-                                  activeCategoryContent.heading,
+                                display: "grid",
+                                // Change from 2 columns to 1 column when there are RHS additional link sections
+                                gridTemplateColumns: activeCategoryContent?.additionalLinkSections?.some(
+                                  (section) => !section.hidden && section.position === "right",
                                 )
+                                  ? "1fr" // Single column when RHS sections exist
+                                  : "repeat(2, 1fr)", // Otherwise use 2 columns
+                                gap: "0.75rem 2rem",
+                                listStyle: "none",
+                                padding: 0,
+                                margin: 0,
+                                marginBottom: "1.5rem",
                               }}
                             >
-                              <span>{activeCategoryContent.primaryButton.text}</span>
-                              <ChevronRight size={16} style={{ flexShrink: 0 }} />
-                            </Link>
-                          </div>
-                        )}
-
-                        {/* Additional Link Sections - new feature */}
-                        {renderAdditionalLinkSections()}
-
-                        {/* Information Resources section - using subLists */}
-                        {activeCategoryContent.subLists && activeCategoryContent.subLists.length > 0 && (
-                          <div style={{ marginTop: "1.5rem" }}>
-                            {activeCategoryContent.subLists
-                              .filter((subList) => !subList.hidden)
-                              .map((subList, subListIndex) => (
-                                <div key={`sublist-${subListIndex}`} style={{ marginBottom: "1.5rem" }}>
-                                  <h4
-                                    style={{
-                                      fontWeight: "600",
-                                      marginTop: "0.5rem",
-                                      marginBottom: "0.75rem",
-                                      padding: "0.5rem 0",
-                                      color: "#4b5563",
-                                      fontSize: "0.95rem",
-                                    }}
-                                  >
-                                    {subList.heading}
-                                  </h4>
-
-                                  {subList.links && subList.links.length > 0 && (
-                                    <div
+                              {activeCategoryContent.links
+                                .filter((link) => !link.hidden)
+                                .map((link) => (
+                                  <li key={link._id}>
+                                    <Link
+                                      href={link.url || "/"}
                                       style={{
-                                        display: "grid",
-                                        gridTemplateColumns: (() => {
-                                          // Count the number of main columns (content + right sections + CTA)
-                                          const rightSectionCount =
-                                            activeCategoryContent?.additionalLinkSections?.filter(
-                                              (section) => !section.hidden && section.position === "right",
-                                            )?.length || 0
+                                        color: "#6b7280",
+                                        textDecoration: "none",
+                                        fontSize: "0.75rem",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.25rem",
+                                        width: "100%", // Updated to 100%
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        const chevron = e.currentTarget.querySelector("svg")
+                                        if (chevron) {
+                                          chevron.style.transform = "translateX(3px)"
+                                          chevron.style.transition = "transform 0.2s ease"
+                                          chevron.style.strokeWidth = "3" // Make chevron bold
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        const chevron = e.currentTarget.querySelector("svg")
+                                        if (chevron) {
+                                          chevron.style.transform = "translateX(0)"
+                                          chevron.style.strokeWidth = "2" // Reset to normal weight
+                                        }
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault() // Prevent actual navigation for testing
+                                        handleLinkClick(
+                                          link.title,
+                                          link.url || "/",
+                                          activeMenuItem?.title,
+                                          activeCategoryContent.heading,
+                                        )
+                                      }}
+                                      role="menuitem"
+                                    >
+                                      <span>{link.title}</span>
+                                      <ChevronRight size={12} style={{ flexShrink: 0 }} />
+                                    </Link>
+                                  </li>
+                                ))}
+                            </ul>
+                          )}
 
-                                          const hasCTAButtons =
-                                            activeCategoryContent?.ctaButtons?.length > 0 ||
-                                            activeCategoryContent?.ctaButtonGroups?.length > 0
+                          {/* Primary Button - displayed below the links */}
+                          {activeCategoryContent.primaryButton && !activeCategoryContent.primaryButton.hidden && (
+                            <div style={{ marginBottom: "1.5rem" }}>
+                              <Link
+                                href={activeCategoryContent.primaryButton.url || "#"}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  padding: "0.5rem 1rem",
+                                  borderRadius: "0.375rem",
+                                  fontWeight: "500",
+                                  color: "#000000",
+                                  backgroundColor: "#ffb612",
+                                  transition: "all 0.2s ease-in-out",
+                                  textDecoration: "none",
+                                  fontSize: "0.75rem",
+                                  width: "fit-content", // Only as wide as needed
+                                  minWidth: "150px", // Minimum width
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = "#003087"
+                                  e.currentTarget.style.color = "#ffffff"
+                                  // Add chevron shift effect
+                                  const chevron = e.currentTarget.querySelector("svg")
+                                  if (chevron) {
+                                    chevron.style.transform = "translateX(3px)"
+                                    chevron.style.transition = "transform 0.2s ease"
+                                    chevron.style.strokeWidth = "3" // Make chevron bold
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = "#ffb612"
+                                  e.currentTarget.style.color = "#000000"
+                                  // Reset chevron position
+                                  const chevron = e.currentTarget.querySelector("svg")
+                                  if (chevron) {
+                                    chevron.style.transform = "translateX(0)"
+                                    chevron.style.strokeWidth = "2" // Reset to normal weight
+                                  }
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault() // Prevent actual navigation for testing
+                                  handlePrimaryButtonClick(
+                                    activeCategoryContent.primaryButton.text,
+                                    activeCategoryContent.primaryButton.url || "#",
+                                    activeMenuItem?.title,
+                                    activeCategoryContent.heading,
+                                  )
+                                }}
+                              >
+                                <span>{activeCategoryContent.primaryButton.text}</span>
+                                <ChevronRight size={16} style={{ flexShrink: 0 }} />
+                              </Link>
+                            </div>
+                          )}
 
-                                          // Calculate total columns (main content + right sections + CTA if present)
-                                          const totalColumns = 1 + rightSectionCount + (hasCTAButtons ? 1 : 0)
+                          {/* Additional Link Sections - new feature */}
+                          {renderAdditionalLinkSections()}
 
-                                          // Use 1 column if there are more than 2 total columns
-                                          return totalColumns > 2 ? "1fr" : "repeat(2, 1fr)"
-                                        })(),
-                                        gap: "1rem",
+                          {/* Information Resources section - using subLists */}
+                          {activeCategoryContent.subLists && activeCategoryContent.subLists.length > 0 && (
+                            <div style={{ marginTop: "1.5rem" }}>
+                              {activeCategoryContent.subLists
+                                .filter((subList) => !subList.hidden)
+                                .map((subList, subListIndex) => (
+                                  <div key={`sublist-${subListIndex}`} style={{ marginBottom: "1.5rem" }}>
+                                    <h4
+                                      style={{
+                                        fontWeight: "600",
+                                        marginTop: "0.5rem",
+                                        marginBottom: "0.75rem",
+                                        padding: "0.5rem 0",
+                                        color: "#4b5563",
+                                        fontSize: "0.95rem",
                                       }}
                                     >
-                                      {subList.links
-                                        .filter((link) => !link.hidden)
-                                        .map((link) => (
-                                          <Link
-                                            key={link._id}
-                                            href={link.url || "#"}
-                                            style={{
-                                              display: "flex",
-                                              alignItems: "center",
-                                              gap: "0.75rem",
-                                              padding: "0.5rem",
-                                              borderRadius: "0.25rem",
-                                              backgroundColor: "#f0f0f0",
-                                              textDecoration: "none",
-                                              width: "70%", // Make the link 30% less wide
-                                              transition: "all 0.2s ease-in-out",
-                                            }}
-                                            onMouseEnter={(e) => {
-                                              e.currentTarget.style.backgroundColor = "#003087"
-                                              const textElement = e.currentTarget.querySelector("span")
-                                              if (textElement) {
-                                                textElement.style.color = "#ffffff"
-                                              }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                              e.currentTarget.style.backgroundColor = "#f0f0f0"
-                                              const textElement = e.currentTarget.querySelector("span")
-                                              if (textElement) {
-                                                textElement.style.color = "#4b5563"
-                                              }
-                                            }}
-                                            onClick={(e) => {
-                                              e.preventDefault() // Prevent actual navigation for testing
-                                              handleLinkClick(
-                                                link.title,
-                                                link.url || "#",
-                                                activeMenuItem?.title,
-                                                subList.heading,
-                                              )
-                                            }}
-                                          >
-                                            {/* Only show image if it exists */}
-                                            {link.image && (
-                                              <div style={{ flexShrink: 0 }}>
-                                                <Image
-                                                  src={link.image || "/placeholder.svg"}
-                                                  alt={link.title}
-                                                  width={link.imageWidth || 72}
-                                                  height={link.imageHeight || 56}
-                                                  style={{ borderRadius: "0.25rem", objectFit: "cover" }}
-                                                />
-                                              </div>
-                                            )}
-                                            <span
+                                      {subList.heading}
+                                    </h4>
+
+                                    {subList.links && subList.links.length > 0 && (
+                                      <div
+                                        style={{
+                                          display: "grid",
+                                          gridTemplateColumns: (() => {
+                                            // Count the number of main columns (content + right sections + CTA)
+                                            const rightSectionCount =
+                                              activeCategoryContent?.additionalLinkSections?.filter(
+                                                (section) => !section.hidden && section.position === "right",
+                                              )?.length || 0
+
+                                            // Calculate total columns (main content + right sections + CTA if present)
+                                            const totalColumns = 1 + rightSectionCount + (hasCTAButtons ? 1 : 0)
+
+                                            // Use 1 column if there are more than 2 total columns
+                                            return totalColumns > 2 ? "1fr" : "repeat(2, 1fr)"
+                                          })(),
+                                          gap: "1rem",
+                                        }}
+                                      >
+                                        {subList.links
+                                          .filter((link) => !link.hidden)
+                                          .map((link) => (
+                                            <Link
+                                              key={link._id}
+                                              href={link.url || "#"}
                                               style={{
-                                                fontSize: "0.75rem",
-                                                fontWeight: "500",
-                                                color: "#4b5563",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "0.75rem",
+                                                padding: "0.5rem",
+                                                borderRadius: "0.25rem",
+                                                backgroundColor: "#f0f0f0",
+                                                textDecoration: "none",
+                                                width: "100%", // Updated to 100%
+                                                transition: "all 0.2s ease-in-out",
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                e.currentTarget.style.backgroundColor = "#003087"
+                                                const textElement = e.currentTarget.querySelector("span")
+                                                if (textElement) {
+                                                  textElement.style.color = "#ffffff"
+                                                }
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                e.currentTarget.style.backgroundColor = "#f0f0f0"
+                                                const textElement = e.currentTarget.querySelector("span")
+                                                if (textElement) {
+                                                  textElement.style.color = "#4b5563"
+                                                }
+                                              }}
+                                              onClick={(e) => {
+                                                e.preventDefault() // Prevent actual navigation for testing
+                                                handleLinkClick(
+                                                  link.title,
+                                                  link.url || "#",
+                                                  activeMenuItem?.title,
+                                                  subList.heading,
+                                                )
                                               }}
                                             >
-                                              {link.title}
-                                            </span>
-                                          </Link>
-                                        ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Right side content area - flexible layout for CTA buttons and right-positioned additional link sections */}
-                  <div
-                    style={{
-                      display: "flex",
-                      flexGrow: 1,
-                    }}
-                  >
-                    {/* CTA buttons */}
-                    {(activeCategoryContent?.ctaButtons?.length > 0 ||
-                      activeCategoryContent?.ctaButtonGroups?.length > 0) && (
-                      <div
-                        style={{
-                          width: (() => {
-                            // Count the number of right-side sections
-                            const rightSectionCount =
-                              activeCategoryContent?.additionalLinkSections?.filter(
-                                (section) => !section.hidden && section.position === "right",
-                              )?.length || 0
-
-                            // Count total sections (CTA buttons + right sections)
-                            const totalSections = rightSectionCount + 1
-
-                            // Return percentage width, making CTA section narrower (75% of equal distribution)
-                            return `${Math.floor((100 / totalSections) * 0.75)}%`
-                          })(),
-                          flexShrink: 0, // Prevent shrinking
-                          marginLeft: "1.5rem",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "1rem",
-                          paddingLeft: "1.5rem",
-                          borderLeft: "1px solid #e5e7eb",
-                        }}
-                      >
-                        {renderCtaButtonGroups()}
-                      </div>
-                    )}
+                                              {/* Only show image if it exists */}
+                                              {link.image && (
+                                                <div style={{ flexShrink: 0 }}>
+                                                  <Image
+                                                    src={link.image || "/placeholder.svg"}
+                                                    alt={link.title}
+                                                    width={link.imageWidth || 72}
+                                                    height={link.imageHeight || 56}
+                                                    style={{ borderRadius: "0.25rem", objectFit: "cover" }}
+                                                  />
+                                                </div>
+                                              )}
+                                              <span
+                                                style={{
+                                                  fontSize: "0.75rem",
+                                                  fontWeight: "500",
+                                                  color: "#4b5563",
+                                                }}
+                                              >
+                                                {link.title}
+                                              </span>
+                                            </Link>
+                                          ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
 
                     {/* Right-side additional link sections */}
                     {renderRightSideAdditionalLinkSections()}
                   </div>
+
+                  {/* Right side content area - CTA buttons - ALWAYS on the far right */}
+                  {hasCTAButtons && renderCTASection()}
                 </div>
               </div>
             </div>

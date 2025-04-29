@@ -77,8 +77,8 @@ export function MenuInteractionProvider({ children }: { children: React.ReactNod
     console.log("Interaction triggered:", { title, url })
     console.log("User info for logging:", { userName, sheetName })
 
-    // Log to Google Sheets if we have user info
-    if (userName && sheetName) {
+    // Log to Google Sheets if we have user info and the required environment variables
+    if (userName && sheetName && process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
       console.log("Attempting to log to Google Sheets")
       try {
         const response = await fetch("/api/sheets/log-interaction", {
@@ -106,37 +106,11 @@ export function MenuInteractionProvider({ children }: { children: React.ReactNod
         console.error("Error logging interaction to Google Sheets:", error)
       }
     } else {
-      console.warn("Not logging to Google Sheets - missing user info")
-      if (!userName) console.warn("userName is missing")
-      if (!sheetName) console.warn("sheetName is missing")
-
-      // Try to recover if possible
-      const storedUserName = localStorage.getItem("megtUserName")
-      const storedSheetName = localStorage.getItem("megtSheetName")
-
-      if (storedUserName && storedSheetName && (!userName || !sheetName)) {
-        console.log("Attempting recovery with stored values")
-        try {
-          const response = await fetch("/api/sheets/log-interaction", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              title,
-              url,
-              userName: storedUserName,
-              sheetName: storedSheetName,
-              timestamp: timestamp.toISOString(),
-            }),
-          })
-
-          const data = await response.json()
-          console.log("Recovery attempt result:", data)
-        } catch (error) {
-          console.error("Recovery attempt failed:", error)
-        }
-      }
+      console.log("Skipping Google Sheets logging - missing required info or environment variables")
+      if (!userName) console.log("userName is missing")
+      if (!sheetName) console.log("sheetName is missing")
+      if (!process.env.GOOGLE_CLIENT_EMAIL) console.log("GOOGLE_CLIENT_EMAIL environment variable is missing")
+      if (!process.env.GOOGLE_PRIVATE_KEY) console.log("GOOGLE_PRIVATE_KEY environment variable is missing")
     }
   }
 
