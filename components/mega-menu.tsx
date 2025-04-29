@@ -1260,7 +1260,7 @@ export function MegaMenu({ menuItems, otherItems }: MegaMenuProps) {
           display: "flex",
           gap: "1.5rem",
           paddingLeft: "1.5rem",
-          borderLeft: !hasCTAButtons ? "1px solid #e5e7eb" : "none", // Only add border if no CTA buttons
+          borderLeft: "none", // Remove the vertical line completely
           flexGrow: 1, // Take remaining space
           justifyContent: "space-between", // Distribute sections evenly
         }}

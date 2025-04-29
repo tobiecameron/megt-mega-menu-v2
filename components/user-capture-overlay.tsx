@@ -15,6 +15,7 @@ export function UserCaptureOverlay({ onUserCaptured }: UserCaptureOverlayProps) 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
+  // Update the handleSubmit function to ensure user data is properly saved
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -23,49 +24,48 @@ export function UserCaptureOverlay({ onUserCaptured }: UserCaptureOverlayProps) 
     setIsSubmitting(true)
 
     try {
+      // First, store the user name in localStorage directly
+      localStorage.setItem("megtUserName", userName.trim())
+
       // Format date for sheet name
       const date = new Date()
       const formattedDate = `${date.getMonth() + 1}-${date.getDate()}-${date.getFullYear()}`
       const formattedTime = `${date.getHours()}:${date.getMinutes()}`
-      const sheetName = `${userName} ${formattedDate} ${formattedTime}`.substring(0, 31)
+      const calculatedSheetName = `${userName.trim()} ${formattedDate} ${formattedTime}`.substring(0, 31)
 
-      console.log("Creating sheet with name:", sheetName)
+      // Store session start time and sheet name in localStorage
+      localStorage.setItem("megtSessionStart", date.toISOString())
+      localStorage.setItem("megtSheetName", calculatedSheetName)
 
-      // Only initialize a new session in Google Sheets if environment variables are available
-      if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-        // Initialize a new session in Google Sheets
+      console.log("User session data saved to localStorage:", {
+        userName: userName.trim(),
+        sessionStart: date.toISOString(),
+        sheetName: calculatedSheetName,
+      })
+
+      // Call the callback to update the parent component
+      onUserCaptured(userName.trim())
+
+      // Try to initialize the session in Google Sheets, but don't block on it
+      try {
         const response = await fetch("/api/sheets/init-session", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            userName,
+            userName: userName.trim(),
             sessionStartTime: date.toISOString(),
-            sheetName, // Pass the sheet name directly
+            sheetName: calculatedSheetName,
           }),
         })
 
-        if (!response.ok) {
-          console.warn("Failed to initialize Google Sheets session, but continuing anyway")
-        }
-      } else {
-        console.log("Skipping Google Sheets initialization - missing environment variables")
+        const data = await response.json()
+        console.log("Sheet initialization response:", data)
+      } catch (error) {
+        console.error("Error initializing sheet, but continuing session:", error)
+        // We don't fail the user capture if sheet initialization fails
       }
-
-      // Store user info in localStorage for persistence
-      localStorage.setItem("megtUserName", userName)
-      localStorage.setItem("megtSessionStart", date.toISOString())
-      localStorage.setItem("megtSheetName", sheetName) // Store sheet name directly
-
-      console.log("Stored in localStorage:", {
-        userName,
-        sessionStart: date.toISOString(),
-        sheetName,
-      })
-
-      // Call the callback to update the parent component
-      onUserCaptured(userName)
     } catch (error) {
       console.error("Error initializing session:", error)
       alert("There was an error starting your session. Please try again.")

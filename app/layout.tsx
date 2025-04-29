@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Source_Sans_3 } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { TrackingDebug } from "@/components/tracking-debug"
 
 const sourceSansPro = Source_Sans_3({
   subsets: ["latin"],
@@ -25,9 +26,9 @@ export default function RootLayout({
       <body className={`${sourceSansPro.className}`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
+          <TrackingDebug />
         </ThemeProvider>
       </body>
     </html>
   )
 }
-

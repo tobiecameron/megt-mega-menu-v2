@@ -414,6 +414,7 @@ function MainContent({
 // Import this after the component definition to avoid the circular reference
 import { useMenuInteractions } from "@/components/menu-interaction-context"
 
+// Update the Home component to handle user session better
 export default function Home() {
   const [menuData, setMenuData] = useState({ items: [], otherItems: [] })
   const [footerData, setFooterData] = useState({
@@ -424,7 +425,7 @@ export default function Home() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showUserCapture, setShowUserCapture] = useState(true)
+  const [showUserCapture, setShowUserCapture] = useState(false)
   const [userName, setUserName] = useState<string | null>(null)
 
   useEffect(() => {
@@ -433,6 +434,9 @@ export default function Home() {
     if (storedUserName) {
       setUserName(storedUserName)
       setShowUserCapture(false)
+    } else {
+      // If no user name is found, show the capture overlay
+      setShowUserCapture(true)
     }
 
     async function fetchData() {
@@ -478,6 +482,9 @@ export default function Home() {
   const handleUserCaptured = (name: string) => {
     setUserName(name)
     setShowUserCapture(false)
+
+    // Force a reload to ensure the context provider gets the updated values
+    window.location.reload()
   }
 
   return (
